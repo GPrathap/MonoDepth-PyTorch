@@ -47,7 +47,7 @@ def return_arguments():
                         default=256)
     parser.add_argument('--input_width', type=int, help='input width',
                         default=512)
-    parser.add_argument('--model', default='resnet50_md',
+    parser.add_argument('--model', default='resnet18_md',
                         help='encoder architecture: ' +
                              'resnet18_md or resnet50_md ' + '(default: resnet18)'
                              + 'or torchvision version of any resnet model'
@@ -294,7 +294,7 @@ class Model:
                 loss_real.backward()
                 self.optimizer_discriminator.step()
                 losses_real.append(loss_real.item())
-                self.label = torch.full((self.args.batch_size,), self.real_label, device=self.device)
+                self.label = torch.full((logicstics.shape[0],), self.real_label, device=self.device)
                 errD_real = self.criterion(logicstics, self.label)
                 errD_real.backward()
                 self.d_x_real = logicstics.mean().item()
