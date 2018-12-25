@@ -123,8 +123,7 @@ class MonodepthLoss(nn.modules.Module):
         # Generate images
         left_est = [self.generate_image_left(right_pyramid[i],
                     disp_left_est[i]) for i in range(self.n)]
-        right_est = [self.generate_image_right(left_pyramid[i],
-                     disp_right_est[i]) for i in range(self.n)]
+        right_est = [self.generate_image_right(left_pyramid[i], disp_right_est[i]) for i in range(self.n)]
         self.left_est = left_est
         self.right_est = right_est
 
