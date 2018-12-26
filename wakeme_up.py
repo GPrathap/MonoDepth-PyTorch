@@ -300,44 +300,44 @@ class Model:
                 disp1, disp2, disp3, disp4, logicstics = self.model_discriminator(left)
                 loss_real = self.loss_function([disp1, disp2, disp3, disp4], [left, right])
 
+                loss_real.backward()
                 self.optimizer_discriminator.step()
+
                 losses_real.append(loss_real.item())
-                self.label = torch.full((left.shape[0],), self.real_label, device=self.device)
-                errD_real = self.criterion(logicstics, self.label)
 
-                self.d_x_real = logicstics.mean().item()
+                # self.label = torch.full((left.shape[0],), self.real_label, device=self.device)
+                # errD_real = self.criterion(logicstics, self.label)
+                #
+                # self.d_x_real = logicstics.mean().item()
+                #
+                # print("get fake images")
+                #
+                # noise = torch.randn(self.args.batch_size, self.nz, 1, 1, device=self.device)
+                # fake = self.model_generator(noise)
+                # self.label.fill_(self.fake_label)
+                # disp1_fake, disp2_fake, disp3_fake, disp4_fake, logicstics_fake = self.model_discriminator(
+                #     fake.detach())
+                # loss_fake = self.loss_function([disp1_fake, disp2_fake, disp3_fake, disp4_fake], [fake, right])
+                # losses_fake.append(loss_fake)
+                # errD_fake = self.criterion(logicstics_fake, self.label)
+                # d_g_z1 = logicstics_fake.mean().item()
+                # errD = errD_real + errD_fake
+                # self.optimizer_discriminator.step()
+                #
+                # print("calculate total error")
+                #
+                # self.model_generator.zero_grad()
+                # self.label.fill_(self.real_label)  # fake labels are real for generator cost
+                # disp1_fake_1, disp2_fake_1, disp3_fake_1, disp4_fake_1, logicstics_fake_1 = self.model_discriminator(fake)
+                # errG = self.criterion(logicstics_fake_1, self.label)
+                #
+                # d_g_z2 = logicstics_fake_1.mean().item()
+                # self.optimizer_generator.step()
 
-                print("get fake images")
-
-                noise = torch.randn(self.args.batch_size, self.nz, 1, 1, device=self.device)
-                fake = self.model_generator(noise)
-                self.label.fill_(self.fake_label)
-                disp1_fake, disp2_fake, disp3_fake, disp4_fake, logicstics_fake = self.model_discriminator(
-                    fake.detach())
-                loss_fake = self.loss_function([disp1_fake, disp2_fake, disp3_fake, disp4_fake], [fake, right])
-                losses_fake.append(loss_fake)
-                errD_fake = self.criterion(logicstics_fake, self.label)
-                d_g_z1 = logicstics_fake.mean().item()
-                errD = errD_real + errD_fake
-                self.optimizer_discriminator.step()
-
-                print("calculate total error")
-
-                self.model_generator.zero_grad()
-                self.label.fill_(self.real_label)  # fake labels are real for generator cost
-                disp1_fake_1, disp2_fake_1, disp3_fake_1, disp4_fake_1, logicstics_fake_1 = self.model_discriminator(fake)
-                errG = self.criterion(logicstics_fake_1, self.label)
-
-                d_g_z2 = logicstics_fake_1.mean().item()
-                self.optimizer_generator.step()
-
-                print('[%d/%d][%d/%d] Loss_D: %.4f Loss_G: %.4f D(x): %.4f D(G(z)): %.4f / %.4f'
-                      % (epoch, iterator, epoch, len(data),
-                         errD.item(), errG.item(), self.d_x_real, d_g_z1, d_g_z2))
+                # print('[%d/%d][%d/%d] Loss_D: %.4f Loss_G: %.4f D(x): %.4f D(G(z)): %.4f / %.4f'
+                #       % (epoch, iterator, epoch, len(data),
+                #          errD.item(), errG.item(), self.d_x_real, d_g_z1, d_g_z2))
                 if epoch % 100 == 0:
-                    # vutils.save_image(real_cpu,
-                    #                   '%s/real_samples.png' % self.args.outf,
-                    #                   normalize=True)
                     fake = self.model_generator(self.fixed_noise)
                     vutils.save_image(fake.detach(),
                                       '%s/fake_samples_epoch_%03d.png' % (self.args.output_image_directory, epoch),
