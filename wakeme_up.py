@@ -256,6 +256,7 @@ class Model:
 
     def train(self):
         losses_real = []
+        losses_fake = []
         val_losses = []
         best_loss_real = float('Inf')
         best_val_loss = float('Inf')
@@ -295,7 +296,7 @@ class Model:
                 losses_real.append(loss_real.item())
                 self.label = torch.full((logicstics.shape[0],), self.real_label, device=self.device)
                 errD_real = self.criterion(logicstics, self.label)
-                errD_real.backward()
+                errD_real.backward(retain_graph=True)
                 self.d_x_real = logicstics.mean().item()
 
                 noise = torch.randn(self.args.batch_size, self.nz, 1, 1, device=self.device)
@@ -304,9 +305,9 @@ class Model:
                 disp1_fake, disp2_fake, disp3_fake, disp4_fake, logicstics_fake = self.model_discriminator(
                     fake.detach())
                 loss_fake = self.loss_function([disp1_fake, disp2_fake, disp3_fake, disp4_fake], [fake, right])
-                loss_fake.backward()
+                losses_fake.append(loss_fake)
                 errD_fake = self.criterion(logicstics_fake, self.label)
-                errD_fake.backward()
+                errD_fake.backward(retain_graph=True)
                 d_g_z1 = logicstics_fake.mean().item()
                 errD = errD_real + errD_fake
                 self.optimizer_discriminator.step()
@@ -315,7 +316,7 @@ class Model:
                 self.label.fill_(self.real_label)  # fake labels are real for generator cost
                 output = self.model_discriminator(fake)
                 errG = self.criterion(output, self.label)
-                errG.backward()
+                errG.backward(retain_graph=True)
                 d_g_z2 = output.mean().item()
                 self.model_generator.step()
 
