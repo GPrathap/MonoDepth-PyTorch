@@ -7,16 +7,15 @@ from torch.utils.data import Dataset
 class KittiLoader(Dataset):
     def __init__(self, root_dir, mode, transform=None):
         left_dir = os.path.join(root_dir, 'image_02/data/')
-        self.left_paths = sorted([os.path.join(left_dir, fname) for fname\
-                           in os.listdir(left_dir)])
+        self.left_paths = sorted([os.path.join(left_dir, fname) for fname \
+                                  in os.listdir(left_dir)])
         if mode == 'train':
             right_dir = os.path.join(root_dir, 'image_03/data/')
-            self.right_paths = sorted([os.path.join(right_dir, fname) for fname\
-                                in os.listdir(right_dir)])
+            self.right_paths = sorted([os.path.join(right_dir, fname) for fname \
+                                       in os.listdir(right_dir)])
             assert len(self.right_paths) == len(self.left_paths)
         self.transform = transform
         self.mode = mode
-
 
     def __len__(self):
         return len(self.left_paths)

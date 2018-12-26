@@ -3,10 +3,10 @@ import collections
 import os
 from torch.utils.data import DataLoader, ConcatDataset
 
-
 from models_resnet import Resnet18_md, Resnet50_md, ResnetModel
 from data_loader import KittiLoader
 from transforms import image_transforms
+
 
 def to_device(input, device):
     if torch.is_tensor(input):
@@ -38,10 +38,10 @@ def prepare_dataloader(data_directory, mode, augment_parameters,
         mode=mode,
         augment_parameters=augment_parameters,
         do_augmentation=do_augmentation,
-        size = size)
+        size=size)
     datasets = [KittiLoader(os.path.join(data_directory,
-                            data_dir), mode, transform=data_transform)
-                            for data_dir in data_dirs]
+                                         data_dir), mode, transform=data_transform)
+                for data_dir in data_dirs]
     dataset = ConcatDataset(datasets)
     n_img = len(dataset)
     print('Use a dataset with', n_img, 'images')

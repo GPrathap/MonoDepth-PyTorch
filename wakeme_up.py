@@ -131,6 +131,7 @@ def post_process_disparity(disp):
     r_mask = np.fliplr(l_mask)
     return r_mask * l_disp + l_mask * r_disp + (1.0 - l_mask - r_mask) * m_disp
 
+
 # custom weights initialization called on netG and netD
 def weights_init(m):
     classname = m.__class__.__name__
@@ -153,31 +154,31 @@ class Generator(nn.Module):
             nn.BatchNorm2d(output_size),
             nn.ReLU(True),
             # state size. (ngf*8) x 2 x 4
-            nn.ConvTranspose2d(output_size, int(output_size/2), 4, 2, 1, bias=False),
-            nn.BatchNorm2d(int(output_size/2)),
+            nn.ConvTranspose2d(output_size, int(output_size / 2), 4, 2, 1, bias=False),
+            nn.BatchNorm2d(int(output_size / 2)),
             nn.ReLU(True),
             # state size. (ngf*4) x 4 x 8
-            nn.ConvTranspose2d(int(output_size/2), int(output_size/4), 4, 2, 1, bias=False),
-            nn.BatchNorm2d(int(output_size/4)),
+            nn.ConvTranspose2d(int(output_size / 2), int(output_size / 4), 4, 2, 1, bias=False),
+            nn.BatchNorm2d(int(output_size / 4)),
             nn.ReLU(True),
             # state size. (ngf*2) x 8 x 16
-            nn.ConvTranspose2d(int(output_size/4), int(output_size/8), 4, 2, 1, bias=False),
-            nn.BatchNorm2d(int(output_size/8)),
+            nn.ConvTranspose2d(int(output_size / 4), int(output_size / 8), 4, 2, 1, bias=False),
+            nn.BatchNorm2d(int(output_size / 8)),
             nn.ReLU(True),
             # state size. (ngf*2) x 16 x 32
-            nn.ConvTranspose2d(int(output_size/8), int(output_size/16), 4, 2, 1, bias=False),
-            nn.BatchNorm2d(int(output_size/16)),
+            nn.ConvTranspose2d(int(output_size / 8), int(output_size / 16), 4, 2, 1, bias=False),
+            nn.BatchNorm2d(int(output_size / 16)),
             nn.ReLU(True),
             # state size. (ngf*2) x 32 x 64
-            nn.ConvTranspose2d(int(output_size/16), int(output_size/32), 4, 2, 1, bias=False),
-            nn.BatchNorm2d(int(output_size/32)),
+            nn.ConvTranspose2d(int(output_size / 16), int(output_size / 32), 4, 2, 1, bias=False),
+            nn.BatchNorm2d(int(output_size / 32)),
             nn.ReLU(True),
             # state size. (ngf*2) x 64 x 128
-            nn.ConvTranspose2d(int(output_size/32), int(output_size/64), 4, 2, 1, bias=False),
-            nn.BatchNorm2d(int(output_size/64)),
+            nn.ConvTranspose2d(int(output_size / 32), int(output_size / 64), 4, 2, 1, bias=False),
+            nn.BatchNorm2d(int(output_size / 64)),
             nn.ReLU(True),
             # state size. (ngf*2) x 128 x 256
-            nn.ConvTranspose2d(int(output_size/64), args.nc, 4, 2, 1, bias=False),
+            nn.ConvTranspose2d(int(output_size / 64), args.nc, 4, 2, 1, bias=False),
             nn.Tanh()
             # state size. (nc) x 256 x 512
         )
@@ -187,8 +188,6 @@ class Generator(nn.Module):
         #     output = nn.parallel.data_parallel(self.main, input, range(self.args.ngpu))
         # else:
         return self.main(input)
-
-
 
 
 class Model:
@@ -215,11 +214,10 @@ class Model:
         print(self.model_generator)
 
         self.model_discriminator = get_model(args.model, input_channels=args.input_channels,
-                                                  pretrained=args.pretrained)
+                                             pretrained=args.pretrained)
         self.model_discriminator = self.model_discriminator.to(self.device)
 
         self.criterion = nn.BCELoss()
-
 
         if args.use_multiple_gpu:
             self.model_discriminator = torch.nn.DataParallel(self.model_discriminator)
@@ -273,7 +271,7 @@ class Model:
             val_losses.append(loss.item())
             running_val_loss += loss.item()
 
-        running_val_loss = running_val_loss/(self.val_n_img / self.args.batch_size)
+        running_val_loss = running_val_loss / (self.val_n_img / self.args.batch_size)
         print('Val_loss:', running_val_loss)
 
         for epoch in range(self.args.epochs):
@@ -303,7 +301,8 @@ class Model:
                 noise = torch.randn(self.args.batch_size, self.nz, 1, 1, device=self.device)
                 fake = self.model_generator(noise)
                 self.label.fill_(self.fake_label)
-                disp1_fake, disp2_fake, disp3_fake, disp4_fake, logicstics_fake = self.model_discriminator(fake.detach())
+                disp1_fake, disp2_fake, disp3_fake, disp4_fake, logicstics_fake = self.model_discriminator(
+                    fake.detach())
                 loss_fake = self.loss_function([disp1_fake, disp2_fake, disp3_fake, disp4_fake], [fake, right])
                 loss_fake.backward()
                 errD_fake = self.criterion(logicstics_fake, self.label)
@@ -448,4 +447,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

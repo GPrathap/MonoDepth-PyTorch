@@ -21,8 +21,8 @@ class MonodepthLoss(nn.modules.Module):
             nh = h // ratio
             nw = w // ratio
             scaled_imgs.append(nn.functional.interpolate(img,
-                               size=[nh, nw], mode='bilinear',
-                               align_corners=True))
+                                                         size=[nh, nw], mode='bilinear',
+                                                         align_corners=True))
         return scaled_imgs
 
     def gradient_x(self, img):
@@ -42,15 +42,15 @@ class MonodepthLoss(nn.modules.Module):
 
         # Original coordinates of pixels
         x_base = torch.linspace(0, 1, width).repeat(batch_size,
-                    height, 1).type_as(img)
+                                                    height, 1).type_as(img)
         y_base = torch.linspace(0, 1, height).repeat(batch_size,
-                    width, 1).transpose(1, 2).type_as(img)
+                                                     width, 1).transpose(1, 2).type_as(img)
 
         # Apply shift in X direction
         x_shifts = disp[:, 0, :, :]  # Disparity is passed in NCHW format with 1 channel
         flow_field = torch.stack((x_base + x_shifts, y_base), dim=3)
         # In grid_sample coordinates are assumed to be between -1 and 1
-        output = F.grid_sample(img, 2*flow_field - 1, mode='bilinear',
+        output = F.grid_sample(img, 2 * flow_field - 1, mode='bilinear',
                                padding_mode='zeros')
 
         return output
@@ -89,9 +89,9 @@ class MonodepthLoss(nn.modules.Module):
         image_gradients_y = [self.gradient_y(img) for img in pyramid]
 
         weights_x = [torch.exp(-torch.mean(torch.abs(g), 1,
-                     keepdim=True)) for g in image_gradients_x]
+                                           keepdim=True)) for g in image_gradients_x]
         weights_y = [torch.exp(-torch.mean(torch.abs(g), 1,
-                     keepdim=True)) for g in image_gradients_y]
+                                           keepdim=True)) for g in image_gradients_y]
 
         smoothness_x = [disp_gradients_x[i] * weights_x[i]
                         for i in range(self.n)]
@@ -122,16 +122,16 @@ class MonodepthLoss(nn.modules.Module):
         self.disp_right_est = disp_right_est
         # Generate images
         left_est = [self.generate_image_left(right_pyramid[i],
-                    disp_left_est[i]) for i in range(self.n)]
+                                             disp_left_est[i]) for i in range(self.n)]
         right_est = [self.generate_image_right(left_pyramid[i], disp_right_est[i]) for i in range(self.n)]
         self.left_est = left_est
         self.right_est = right_est
 
         # L-R Consistency
         right_left_disp = [self.generate_image_left(disp_right_est[i],
-                           disp_left_est[i]) for i in range(self.n)]
+                                                    disp_left_est[i]) for i in range(self.n)]
         left_right_disp = [self.generate_image_right(disp_left_est[i],
-                           disp_right_est[i]) for i in range(self.n)]
+                                                     disp_right_est[i]) for i in range(self.n)]
 
         # Disparities smoothness
         disp_left_smoothness = self.disp_smoothness(disp_left_est,
@@ -143,13 +143,13 @@ class MonodepthLoss(nn.modules.Module):
         l1_left = [torch.mean(torch.abs(left_est[i] - left_pyramid[i]))
                    for i in range(self.n)]
         l1_right = [torch.mean(torch.abs(right_est[i]
-                    - right_pyramid[i])) for i in range(self.n)]
+                                         - right_pyramid[i])) for i in range(self.n)]
 
         # SSIM
         ssim_left = [torch.mean(self.SSIM(left_est[i],
-                     left_pyramid[i])) for i in range(self.n)]
+                                          left_pyramid[i])) for i in range(self.n)]
         ssim_right = [torch.mean(self.SSIM(right_est[i],
-                      right_pyramid[i])) for i in range(self.n)]
+                                           right_pyramid[i])) for i in range(self.n)]
 
         image_loss_left = [self.SSIM_w * ssim_left[i]
                            + (1 - self.SSIM_w) * l1_left[i]
@@ -161,21 +161,21 @@ class MonodepthLoss(nn.modules.Module):
 
         # L-R Consistency
         lr_left_loss = [torch.mean(torch.abs(right_left_disp[i]
-                        - disp_left_est[i])) for i in range(self.n)]
+                                             - disp_left_est[i])) for i in range(self.n)]
         lr_right_loss = [torch.mean(torch.abs(left_right_disp[i]
-                         - disp_right_est[i])) for i in range(self.n)]
+                                              - disp_right_est[i])) for i in range(self.n)]
         lr_loss = sum(lr_left_loss + lr_right_loss)
 
         # Disparities smoothness
         disp_left_loss = [torch.mean(torch.abs(
-                          disp_left_smoothness[i])) / 2 ** i
+            disp_left_smoothness[i])) / 2 ** i
                           for i in range(self.n)]
         disp_right_loss = [torch.mean(torch.abs(
-                           disp_right_smoothness[i])) / 2 ** i
+            disp_right_smoothness[i])) / 2 ** i
                            for i in range(self.n)]
         disp_gradient_loss = sum(disp_left_loss + disp_right_loss)
 
-        loss = image_loss + self.disp_gradient_w * disp_gradient_loss\
+        loss = image_loss + self.disp_gradient_w * disp_gradient_loss \
                + self.lr_w * lr_loss
         self.image_loss = image_loss
         self.disp_gradient_loss = disp_gradient_loss

@@ -13,6 +13,7 @@ from utils import get_model, to_device, prepare_dataloader
 
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+
 mpl.rcParams['figure.figsize'] = (15, 10)
 
 
@@ -24,7 +25,7 @@ def return_arguments():
                         It should contain subfolders with following structure:\
                         "image_02/data" for left images and \
                         "image_03/data" for right images'
-                        ,default="/dataset/model1"
+                        , default="/dataset/model1"
                         )
     parser.add_argument('--val_data_dir',
                         help='path to the validation dataset folder. \
@@ -46,8 +47,8 @@ def return_arguments():
                         default=512)
     parser.add_argument('--model', default='resnet18_md',
                         help='encoder architecture: ' +
-                        'resnet18_md or resnet50_md ' + '(default: resnet18)'
-                        + 'or torchvision version of any resnet model'
+                             'resnet18_md or resnet50_md ' + '(default: resnet18)'
+                             + 'or torchvision version of any resnet model'
                         )
     parser.add_argument('--pretrained', default=False,
                         help='Use weights of pretrained model'
@@ -77,10 +78,10 @@ def return_arguments():
         2.0,
         0.8,
         1.2,
-        ],
-        help='lowest and highest values for gamma,\
+    ],
+                        help='lowest and highest values for gamma,\
                         brightness and color respectively'
-            )
+                        )
     parser.add_argument('--print_images', default=False,
                         help='print disparity and image\
                         generated from disparity on every iteration'
@@ -129,9 +130,6 @@ class Model:
         # Set up model
         self.device = args.device
 
-
-
-
         self.model = get_model(args.model, input_channels=args.input_channels, pretrained=args.pretrained)
         self.model = self.model.to(self.device)
         if args.use_multiple_gpu:
@@ -164,10 +162,8 @@ class Model:
                                                      (args.input_height, args.input_width),
                                                      args.num_workers)
 
-
         if 'cuda' in self.device:
             torch.cuda.synchronize()
-
 
     def train(self):
         losses = []
@@ -229,9 +225,9 @@ class Model:
                                      (1, 2, 0))))
                     plt.show()
                     print('left_est[0]')
-                    plt.imshow(np.transpose(self.loss_function\
-                        .left_est[0][0, :, :, :].cpu().detach().numpy(),
-                        (1, 2, 0)))
+                    plt.imshow(np.transpose(self.loss_function \
+                                            .left_est[0][0, :, :, :].cpu().detach().numpy(),
+                                            (1, 2, 0)))
                     plt.show()
                     print('disp_right_est[0]')
                     plt.imshow(np.squeeze(
@@ -241,8 +237,8 @@ class Model:
                     plt.show()
                     print('right_est[0]')
                     plt.imshow(np.transpose(self.loss_function.right_est[0][0,
-                               :, :, :].cpu().detach().numpy(), (1, 2,
-                               0)))
+                                            :, :, :].cpu().detach().numpy(), (1, 2,
+                                                                              0)))
                     plt.show()
                 running_loss += loss.item()
 
@@ -270,7 +266,7 @@ class Model:
                 'time:',
                 round(time.time() - c_time, 3),
                 's',
-                )
+            )
             self.save(self.args.model_path[:-4] + '_last.pth')
             if running_val_loss < best_val_loss:
                 self.save(self.args.model_path[:-4] + '_cpt.pth')
@@ -289,10 +285,10 @@ class Model:
     def test(self):
         self.model.eval()
         disparities = np.zeros((self.n_img,
-                               self.input_height, self.input_width),
+                                self.input_height, self.input_width),
                                dtype=np.float32)
         disparities_pp = np.zeros((self.n_img,
-                                  self.input_height, self.input_width),
+                                   self.input_height, self.input_width),
                                   dtype=np.float32)
         with torch.no_grad():
             for (i, data) in enumerate(self.loader):
@@ -304,7 +300,7 @@ class Model:
                 disp = disps[0][:, 0, :, :].unsqueeze(1)
                 disparities[i] = disp[0].squeeze().cpu().numpy()
                 disparities_pp[i] = \
-                    post_process_disparity(disps[0][:, 0, :, :]\
+                    post_process_disparity(disps[0][:, 0, :, :] \
                                            .cpu().numpy())
 
         np.save(self.output_directory + '/disparities.npy', disparities)
@@ -325,4 +321,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
