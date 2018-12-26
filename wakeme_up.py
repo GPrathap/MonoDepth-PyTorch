@@ -299,12 +299,12 @@ class Model:
                 self.optimizer_discriminator.zero_grad()
                 disp1, disp2, disp3, disp4, logicstics = self.model_discriminator(left)
                 loss_real = self.loss_function([disp1, disp2, disp3, disp4], [left, right])
-                loss_real.backward(retain_graph=True)
+
                 self.optimizer_discriminator.step()
                 losses_real.append(loss_real.item())
                 self.label = torch.full((left.shape[0],), self.real_label, device=self.device)
                 errD_real = self.criterion(logicstics, self.label)
-                errD_real.backward(retain_graph=True)
+
                 self.d_x_real = logicstics.mean().item()
 
                 print("get fake images")
@@ -317,7 +317,6 @@ class Model:
                 loss_fake = self.loss_function([disp1_fake, disp2_fake, disp3_fake, disp4_fake], [fake, right])
                 losses_fake.append(loss_fake)
                 errD_fake = self.criterion(logicstics_fake, self.label)
-                errD_fake.backward(retain_graph=True)
                 d_g_z1 = logicstics_fake.mean().item()
                 errD = errD_real + errD_fake
                 self.optimizer_discriminator.step()
@@ -328,7 +327,7 @@ class Model:
                 self.label.fill_(self.real_label)  # fake labels are real for generator cost
                 disp1_fake_1, disp2_fake_1, disp3_fake_1, disp4_fake_1, logicstics_fake_1 = self.model_discriminator(fake)
                 errG = self.criterion(logicstics_fake_1, self.label)
-                errG.backward(retain_graph=True)
+
                 d_g_z2 = logicstics_fake_1.mean().item()
                 self.optimizer_generator.step()
 
