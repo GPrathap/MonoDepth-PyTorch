@@ -294,6 +294,7 @@ class Model:
                 left = data['left_image']
                 right = data['right_image']
 
+                print("get real images")
                 # One optimization iteration
                 self.optimizer_discriminator.zero_grad()
                 disp1, disp2, disp3, disp4, logicstics = self.model_discriminator(left)
@@ -305,6 +306,8 @@ class Model:
                 errD_real = self.criterion(logicstics, self.label)
                 errD_real.backward(retain_graph=True)
                 self.d_x_real = logicstics.mean().item()
+
+                print("get fake images")
 
                 noise = torch.randn(self.args.batch_size, self.nz, 1, 1, device=self.device)
                 fake = self.model_generator(noise)
@@ -318,6 +321,8 @@ class Model:
                 d_g_z1 = logicstics_fake.mean().item()
                 errD = errD_real + errD_fake
                 self.optimizer_discriminator.step()
+
+                print("calculate total error")
 
                 self.model_generator.zero_grad()
                 self.label.fill_(self.real_label)  # fake labels are real for generator cost
