@@ -93,7 +93,7 @@ def return_arguments():
                         help='print weights of every layer')
     parser.add_argument('--input_channels', default=3,
                         help='Number of channels in input tensor')
-    parser.add_argument('--num_workers', default=4,
+    parser.add_argument('--num_workers', default=1,
                         help='Number of workers in dataloader')
     parser.add_argument('--use_multiple_gpu', default=False)
     parser.add_argument('--nz', type=int, default=100, help='size of the latent z vector')
