@@ -44,6 +44,11 @@ def return_arguments():
                         for tested images',
                         default="/root/wakemeup/output"
                         )
+    parser.add_argument('--output_image_directory',
+                        help='where save dispairities\
+                            for tested images',
+                        default="/root/wakemeup/images"
+                        )
     parser.add_argument('--input_height', type=int, help='input height',
                         default=256)
     parser.add_argument('--input_width', type=int, help='input width',
@@ -62,7 +67,7 @@ def return_arguments():
                         help='number of total epochs to run')
     parser.add_argument('--learning_rate', default=1e-4,
                         help='initial learning rate (default: 1e-4)')
-    parser.add_argument('--batch_size', default=8,
+    parser.add_argument('--batch_size', default=2,
                         help='mini-batch size (default: 256)')
     parser.add_argument('--adjust_lr', default=True,
                         help='apply learning rate decay or not\
@@ -93,7 +98,7 @@ def return_arguments():
                         help='print weights of every layer')
     parser.add_argument('--input_channels', default=3,
                         help='Number of channels in input tensor')
-    parser.add_argument('--num_workers', default=1,
+    parser.add_argument('--num_workers', default=2,
                         help='Number of workers in dataloader')
     parser.add_argument('--use_multiple_gpu', default=False)
     parser.add_argument('--nz', type=int, default=100, help='size of the latent z vector')
@@ -281,8 +286,10 @@ class Model:
             c_time = time.time()
             running_loss = 0.0
             self.model_discriminator.train()
+            iterator = 0
             for data in self.loader:
                 # Load data
+                iterator = iterator + 1
                 data = to_device(data, self.device)
                 left = data['left_image']
                 right = data['right_image']
@@ -294,7 +301,7 @@ class Model:
                 loss_real.backward(retain_graph=True)
                 self.optimizer_discriminator.step()
                 losses_real.append(loss_real.item())
-                self.label = torch.full((logicstics.shape[0],), self.real_label, device=self.device)
+                self.label = torch.full((left.shape[0],), self.real_label, device=self.device)
                 errD_real = self.criterion(logicstics, self.label)
                 errD_real.backward(retain_graph=True)
                 self.d_x_real = logicstics.mean().item()
@@ -314,14 +321,14 @@ class Model:
 
                 self.model_generator.zero_grad()
                 self.label.fill_(self.real_label)  # fake labels are real for generator cost
-                output = self.model_discriminator(fake)
-                errG = self.criterion(output, self.label)
+                disp1_fake_1, disp2_fake_1, disp3_fake_1, disp4_fake_1, logicstics_fake_1 = self.model_discriminator(fake)
+                errG = self.criterion(logicstics_fake_1, self.label)
                 errG.backward(retain_graph=True)
-                d_g_z2 = output.mean().item()
-                self.model_generator.step()
+                d_g_z2 = logicstics_fake_1.mean().item()
+                self.optimizer_generator.step()
 
                 print('[%d/%d][%d/%d] Loss_D: %.4f Loss_G: %.4f D(x): %.4f D(G(z)): %.4f / %.4f'
-                      % (epoch, self.args.niter, epoch, len(data),
+                      % (epoch, iterator, epoch, len(data),
                          errD.item(), errG.item(), self.d_x_real, d_g_z1, d_g_z2))
                 if epoch % 100 == 0:
                     # vutils.save_image(real_cpu,
@@ -329,7 +336,7 @@ class Model:
                     #                   normalize=True)
                     fake = self.model_generator(self.fixed_noise)
                     vutils.save_image(fake.detach(),
-                                      '%s/fake_samples_epoch_%03d.png' % (self.args.outf, epoch),
+                                      '%s/fake_samples_epoch_%03d.png' % (self.args.output_image_directory, epoch),
                                       normalize=True)
 
                 # Print statistics
