@@ -268,7 +268,7 @@ class Model:
             data = to_device(data, self.device)
             left = data['left_image']
             right = data['right_image']
-            disp1, disp2, disp3, disp4, logicstics = self.model_discriminator(left).to(self.device)
+            disp1, disp2, disp3, disp4, logicstics = self.model_discriminator(left)
             loss = self.loss_function([disp1, disp2, disp3, disp4], [left, right]).to(self.device)
             val_losses.append(loss.item())
             running_val_loss += loss.item()
