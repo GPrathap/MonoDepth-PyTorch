@@ -18,7 +18,7 @@ def to_device(input, device):
     elif isinstance(input, collections.Sequence):
         return [to_device(sample, device=device) for sample in input]
     else:
-        raise TypeError(f"Input must contain tensor, dict or list, found {type(input)}")
+        raise TypeError("Input must contain tensor, dict or list, found ")
 
 
 def get_model(model, input_channels=3, pretrained=False):

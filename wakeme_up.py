@@ -1,12 +1,13 @@
+from __future__ import division
 import argparse
 import time
 import torch
 import numpy as np
 import torch.optim as optim
 import torch.nn as nn
-
 import torchvision.utils as vutils
 # custom modules
+
 
 from loss import MonodepthLoss
 from utils import get_model, to_device, prepare_dataloader
@@ -272,7 +273,7 @@ class Model:
             val_losses.append(loss.item())
             running_val_loss += loss.item()
 
-        running_val_loss /= self.val_n_img / self.args.batch_size
+        running_val_loss = running_val_loss/(self.val_n_img / self.args.batch_size)
         print('Val_loss:', running_val_loss)
 
         for epoch in range(self.args.epochs):
@@ -291,7 +292,7 @@ class Model:
                 self.optimizer_discriminator.zero_grad()
                 disp1, disp2, disp3, disp4, logicstics = self.model_discriminator(left)
                 loss_real = self.loss_function([disp1, disp2, disp3, disp4], [left, right])
-                loss_real.backward()
+                loss_real.backward(retain_graph=True)
                 self.optimizer_discriminator.step()
                 losses_real.append(loss_real.item())
                 self.label = torch.full((logicstics.shape[0],), self.real_label, device=self.device)

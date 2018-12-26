@@ -119,6 +119,10 @@ class upconv(nn.Module):
         x = nn.functional.interpolate(x, scale_factor=self.scale, mode='bilinear', align_corners=True)
         return self.conv1(x)
 
+class flatten(nn.Module):
+    def forward(self, input):
+        return input.view(input.size(0), -1)
+
 
 class get_disp(nn.Module):
     def __init__(self, num_in_layers):
@@ -312,9 +316,14 @@ class Resnet18_md(nn.Module):
         iconv1 = self.iconv1(concat1)
         self.disp1 = self.disp1_layer(iconv1)
 
-        linear_result = nn.Linear(iconv1, 1)
+        #faltted = iconv1.view(iconv1.size(0), -1)
+        #linear_result = nn.Linear(iconv1.size(3), 1).to('cuda')
+        #linear_result_out = linear_result(iconv1).to('cuda')
+
         self.sigmoid_layer = nn.Sigmoid()
-        return self.disp1, self.disp2, self.disp3, self.disp4, self.sigmoid_layer(linear_result)
+        output = self.sigmoid_layer(iconv1)
+
+        return self.disp1, self.disp2, self.disp3, self.disp4, output.view(-1, 1).squeeze(1)
 
 
 def class_for_name(module_name, class_name):
