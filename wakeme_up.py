@@ -217,7 +217,7 @@ class Model:
                                              pretrained=args.pretrained)
         self.model_discriminator = self.model_discriminator.to(self.device)
 
-        self.criterion = nn.BCELoss()
+        self.criterion = nn.BCELoss().to(self.device)
 
         if args.use_multiple_gpu:
             self.model_discriminator = torch.nn.DataParallel(self.model_discriminator)
