@@ -90,7 +90,7 @@ def return_arguments():
                         help='number of total epochs to run')
     parser.add_argument('--learning_rate', default=1e-4,
                         help='initial learning rate (default: 1e-4)')
-    parser.add_argument('--batch_size', default=64,
+    parser.add_argument('--batch_size', default=8,
                         help='mini-batch size (default: 256)')
     parser.add_argument('--adjust_lr', default=True,
                         help='apply learning rate decay or not\
@@ -382,11 +382,12 @@ class Model:
 
                     self.showMemoryUsage(0)
                     # train with interpolates data
-                    gradient_penalty = self.calc_gradient_penalty(left, fake_data, right)
+                    # gradient_penalty = self.calc_gradient_penalty(left, fake_data, right)
                     # showMemoryUsage(0)
 
                     # final disc cost
-                    disc_cost = disc_fake - disc_real + gradient_penalty
+                    disc_cost = disc_fake - disc_real
+                    # disc_cost = disc_fake - disc_real + gradient_penalty
                     disc_cost.backward()
                     w_dist = disc_fake - disc_real
                     self.optimizer_discriminator.step()
