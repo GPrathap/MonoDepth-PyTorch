@@ -231,7 +231,7 @@ class MonodepthLoss(nn.modules.Module):
         #        + self.lr_w * lr_loss
         loss = [image_loss[i] + self.lr_w*lr_loss[i] + self.disp_gradient_w*disp_gradient_loss[i] for i in range(left_est[0].shape[0])]
         loss = torch.stack(loss)
-        self.image_loss = image_loss
+        self.image_loss = torch.stack(image_loss)
         self.disp_gradient_loss = disp_gradient_loss
         self.lr_loss = lr_loss
-        return loss
+        return loss, self.image_loss

@@ -98,7 +98,7 @@ def return_arguments():
                         help='print weights of every layer')
     parser.add_argument('--input_channels', default=3,
                         help='Number of channels in input tensor')
-    parser.add_argument('--num_workers', default=2,
+    parser.add_argument('--num_workers', default=1,
                         help='Number of workers in dataloader')
     parser.add_argument('--use_multiple_gpu', default=False)
     parser.add_argument('--nz', type=int, default=100, help='size of the latent z vector')
@@ -273,7 +273,7 @@ class Model:
             left = data['left_image']
             right = data['right_image']
             disp1, disp2, disp3, disp4 = self.model_discriminator(left)
-            loss = self.loss_function([disp1, disp2, disp3, disp4], [left, right])
+            loss, loss_fake_image = self.loss_function([disp1, disp2, disp3, disp4], [left, right])
             for i in range(len(loss)):
                 val_losses.append(loss[i].item())
                 running_val_loss += loss[i].item()
@@ -298,21 +298,21 @@ class Model:
                 self.optimizer_discriminator.zero_grad()
 
                 disp1, disp2, disp3, disp4 = self.model_discriminator(left)
-                loss_real = self.loss_function([disp1, disp2, disp3, disp4], [left, right])
+                loss_real, loss_real_image = self.loss_function([disp1, disp2, disp3, disp4], [left, right])
                 self.label = torch.full((left.shape[0],), self.real_label, device=self.device)
-                loss_d_real = self.criterion(loss_real, self.label)
+                loss_d_real = self.criterion(loss_real_image, self.label)
                 losses_real.append(loss_d_real.item())
-                loss_d_real.backward()
+                # loss_d_real.backward()
 
                 # Fake images
                 noise = torch.randn(self.args.batch_size, self.nz, 1, 1, device=self.device)
                 fake = self.model_generator(noise)
                 self.label.fill_(self.fake_label)
                 disp1_fake, disp2_fake, disp3_fake, disp4_fake = self.model_discriminator(fake.detach())
-                loss_fake = self.loss_function([disp1_fake, disp2_fake, disp3_fake, disp4_fake], [fake, right])
-                loss_d_fake = self.criterion(loss_fake, self.label)
+                loss_fake, loss_fake_image = self.loss_function([disp1_fake, disp2_fake, disp3_fake, disp4_fake], [fake, right])
+                loss_d_fake = self.criterion(loss_fake_image, self.label)
                 losses_fake.append(loss_d_fake)
-                loss_d_fake.backward()
+                # loss_d_fake.backward()
 
                 total_loss = loss_d_real + loss_d_fake
 
@@ -321,8 +321,8 @@ class Model:
                 self.model_generator.zero_grad()
                 self.label.fill_(self.real_label)  # fake labels are real for generator cost
                 disp1_fake_1, disp2_fake_1, disp3_fake_1, disp4_fake_1 = self.model_discriminator(fake)
-                loss_generator = self.loss_function([disp1_fake_1, disp2_fake_1, disp3_fake_1, disp4_fake_1], [left, right])
-                loss_g_fake = self.criterion(loss_generator, self.label)
+                loss_generator, loss_g_fake_image = self.loss_function([disp1_fake_1, disp2_fake_1, disp3_fake_1, disp4_fake_1], [left, right])
+                loss_g_fake = self.criterion(loss_g_fake_image, self.label)
 
                 self.optimizer_generator.step()
 
@@ -370,7 +370,9 @@ class Model:
                                             :, :, :].cpu().detach().numpy(), (1, 2,
                                                                               0)))
                     plt.show()
-                running_loss += loss_real.item()
+
+                for i in range(len(loss_real)):
+                    running_loss += loss_real[i].item()
 
             running_val_loss = 0.0
             self.model_discriminator.eval()
