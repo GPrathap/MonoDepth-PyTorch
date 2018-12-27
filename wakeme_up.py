@@ -91,7 +91,7 @@ def return_arguments():
                         help='number of total epochs to run')
     parser.add_argument('--learning_rate', default=1e-4,
                         help='initial learning rate (default: 1e-4)')
-    parser.add_argument('--batch_size', default=8,
+    parser.add_argument('--batch_size', default=16,
                         help='mini-batch size (default: 256)')
     parser.add_argument('--adjust_lr', default=True,
                         help='apply learning rate decay or not\
@@ -122,7 +122,7 @@ def return_arguments():
                         help='print weights of every layer')
     parser.add_argument('--input_channels', default=3,
                         help='Number of channels in input tensor')
-    parser.add_argument('--num_workers', default=1,
+    parser.add_argument('--num_workers', default=4,
                         help='Number of workers in dataloader')
     parser.add_argument('--use_multiple_gpu', default=False)
     parser.add_argument('--nz', type=int, default=100, help='size of the latent z vector')
@@ -393,8 +393,8 @@ class Model:
                     disc_cost.backward()
                     self.optimizer_discriminator.step()
 
-                print('[%d/%d][%d/%d] Loss_D: %.4f Loss_G: %.4f '
-                      % (epoch, self.args.niter, iterator, len(data), disc_cost, gen_cost))
+                print('[%d/%d][%d] Loss_D: %.4f Loss_G: %.4f '
+                      % (epoch, iterator, len(data), disc_cost, gen_cost))
 
                 if epoch % 5 == 0:
                     fake = self.model_generator(self.fixed_noise)
