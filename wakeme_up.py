@@ -300,8 +300,8 @@ class Model:
                 disp1, disp2, disp3, disp4 = self.model_discriminator(left)
                 loss_real, loss_real_image = self.loss_function([disp1, disp2, disp3, disp4], [left, right])
                 self.label = torch.full((left.shape[0],), self.real_label, device=self.device)
-                loss_d_real = self.criterion(loss_real_image, self.label)
-                losses_real.append(loss_d_real.item())
+                # loss_d_real = self.criterion(loss_real_image, self.label)
+                # losses_real.append(loss_d_real.item())
                 # loss_d_real.backward()
 
                 # Fake images
@@ -310,12 +310,12 @@ class Model:
                 self.label.fill_(self.fake_label)
                 disp1_fake, disp2_fake, disp3_fake, disp4_fake = self.model_discriminator(fake.detach())
                 loss_fake, loss_fake_image = self.loss_function([disp1_fake, disp2_fake, disp3_fake, disp4_fake], [fake, right])
-                loss_d_fake = self.criterion(loss_fake_image, self.label)
-                losses_fake.append(loss_d_fake)
+                # loss_d_fake = self.criterion(loss_fake_image, self.label)
+                # losses_fake.append(loss_d_fake)
                 # loss_d_fake.backward()
 
-                total_loss = loss_d_real + loss_d_fake
-
+                # total_loss = loss_d_real + loss_d_fake
+                #
                 self.optimizer_discriminator.step()
 
                 self.model_generator.zero_grad()
@@ -326,9 +326,9 @@ class Model:
 
                 self.optimizer_generator.step()
 
-                print('[%d/%d][%d/%d] Loss_D: %.4f Loss_G: %.4f D(x): %.4f D(G(z)): %.4f / %.4f'
-                      % (epoch, iterator, epoch, len(data),
-                         total_loss.item(), loss_g_fake.item(), loss_d_real.item(), loss_d_fake.item(), loss_g_fake.item()))
+                # print('[%d/%d][%d/%d] Loss_D: %.4f Loss_G: %.4f D(x): %.4f D(G(z)): %.4f / %.4f'
+                #       % (epoch, iterator, epoch, len(data),
+                #          total_loss.item(), loss_g_fake.item(), loss_d_real.item(), loss_d_fake.item(), loss_g_fake.item()))
                 if epoch % 100 == 0:
                     fake = self.model_generator(self.fixed_noise)
                     vutils.save_image(fake.detach(),
