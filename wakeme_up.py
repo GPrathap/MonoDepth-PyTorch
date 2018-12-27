@@ -355,7 +355,7 @@ class Model:
                 for p in self.model_generator.parameters():  # reset requires_grad
                     p.requires_grad_(True)  # they are set to False below in training G
                 for i in range(self.args.discriminator_iterations):
-                    print("Critic iter: " + str(i))
+                    # print("Critic iter: " + str(i))
 
                     start = timer()
                     self.model_discriminator.zero_grad()
@@ -366,7 +366,7 @@ class Model:
                         noisev = noise  # totally freeze G, training D
                     fake_data = self.model_generator(noisev).detach()
                     end = timer()
-                    print('---gen G elapsed time: %d'.format(end - start))
+                    # print('---gen G elapsed time: %d'.format(end - start))
                     start = timer()
 
                     # train with real data
@@ -391,8 +391,10 @@ class Model:
                     disc_cost = Variable(disc_cost, requires_grad=True)
                     # disc_cost = disc_fake - disc_real + gradient_penalty
                     disc_cost.backward()
-                    w_dist = disc_fake - disc_real
                     self.optimizer_discriminator.step()
+
+                print('[%d/%d][%d/%d] Loss_D: %.4f Loss_G: %.4f '
+                      % (epoch, self.args.niter, iterator, len(data), disc_cost, gen_cost))
 
                 if epoch % 5 == 0:
                     fake = self.model_generator(self.fixed_noise)
