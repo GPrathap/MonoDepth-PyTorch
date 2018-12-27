@@ -221,9 +221,9 @@ class Resnet50_md(nn.Module):
         iconv1 = self.iconv1(concat1)
         self.disp1 = self.disp1_layer(iconv1)
 
-        linear_result = nn.Linear(iconv1, 1)
-        self.sigmoid_layer = nn.Sigmoid()
-        return self.disp1, self.disp2, self.disp3, self.disp4, self.sigmoid_layer(linear_result)
+        # linear_result = nn.Linear(iconv1, 1)
+        # self.sigmoid_layer = nn.Sigmoid()
+        return self.disp1, self.disp2, self.disp3, self.disp4
 
 
 class Resnet18_md(nn.Module):
@@ -316,10 +316,10 @@ class Resnet18_md(nn.Module):
         # self.sigmoid_layer = nn.Sigmoid()
         # return self.disp1, self.disp2, self.disp3, self.disp4, self.sigmoid_layer(linear_result)
 
-        self.sigmoid_layer = nn.Sigmoid()
-        output = self.sigmoid_layer(iconv1)
+        # self.sigmoid_layer = nn.Sigmoid()
+        # output = self.sigmoid_layer(iconv1)
 
-        return self.disp1, self.disp2, self.disp3, self.disp4, torch.mean(output.view(x.shape[0], -1).squeeze(1), dim=1)
+        return self.disp1, self.disp2, self.disp3, self.disp4
 
 
 def class_for_name(module_name, class_name):

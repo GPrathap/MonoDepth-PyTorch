@@ -67,7 +67,7 @@ def return_arguments():
                         help='number of total epochs to run')
     parser.add_argument('--learning_rate', default=1e-4,
                         help='initial learning rate (default: 1e-4)')
-    parser.add_argument('--batch_size', default=2,
+    parser.add_argument('--batch_size', default=5,
                         help='mini-batch size (default: 256)')
     parser.add_argument('--adjust_lr', default=True,
                         help='apply learning rate decay or not\
@@ -272,10 +272,11 @@ class Model:
             data = to_device(data, self.device)
             left = data['left_image']
             right = data['right_image']
-            disp1, disp2, disp3, disp4, logicstics = self.model_discriminator(left)
-            loss = self.loss_function([disp1, disp2, disp3, disp4], [left, right]).to(self.device)
-            val_losses.append(loss.item())
-            running_val_loss += loss.item()
+            disp1, disp2, disp3, disp4 = self.model_discriminator(left)
+            loss = self.loss_function([disp1, disp2, disp3, disp4], [left, right])
+            for i in range(len(loss)):
+                val_losses.append(loss[i].item())
+                running_val_loss += loss[i].item()
 
         running_val_loss = running_val_loss / (self.val_n_img / self.args.batch_size)
         print('Val_loss:', running_val_loss)
@@ -293,50 +294,41 @@ class Model:
                 data = to_device(data, self.device)
                 left = data['left_image']
                 right = data['right_image']
-
-                print("get real images")
                 # One optimization iteration
                 self.optimizer_discriminator.zero_grad()
-                disp1, disp2, disp3, disp4, logicstics = self.model_discriminator(left)
-                loss_real = self.loss_function([disp1, disp2, disp3, disp4], [left, right])
 
-                loss_real.backward()
+                disp1, disp2, disp3, disp4 = self.model_discriminator(left)
+                loss_real = self.loss_function([disp1, disp2, disp3, disp4], [left, right])
+                self.label = torch.full((left.shape[0],), self.real_label, device=self.device)
+                loss_d_real = self.criterion(loss_real, self.label)
+                losses_real.append(loss_d_real.item())
+                loss_d_real.backward()
+
+                # Fake images
+                noise = torch.randn(self.args.batch_size, self.nz, 1, 1, device=self.device)
+                fake = self.model_generator(noise)
+                self.label.fill_(self.fake_label)
+                disp1_fake, disp2_fake, disp3_fake, disp4_fake = self.model_discriminator(fake.detach())
+                loss_fake = self.loss_function([disp1_fake, disp2_fake, disp3_fake, disp4_fake], [fake, right])
+                loss_d_fake = self.criterion(loss_fake, self.label)
+                losses_fake.append(loss_d_fake)
+                loss_d_fake.backward()
+
+                total_loss = loss_d_real + loss_d_fake
+
                 self.optimizer_discriminator.step()
 
-                losses_real.append(loss_real.item())
+                self.model_generator.zero_grad()
+                self.label.fill_(self.real_label)  # fake labels are real for generator cost
+                disp1_fake_1, disp2_fake_1, disp3_fake_1, disp4_fake_1 = self.model_discriminator(fake)
+                loss_generator = self.loss_function([disp1_fake_1, disp2_fake_1, disp3_fake_1, disp4_fake_1], [left, right])
+                loss_g_fake = self.criterion(loss_generator, self.label)
 
-                # self.label = torch.full((left.shape[0],), self.real_label, device=self.device)
-                # errD_real = self.criterion(logicstics, self.label)
-                #
-                # self.d_x_real = logicstics.mean().item()
-                #
-                # print("get fake images")
-                #
-                # noise = torch.randn(self.args.batch_size, self.nz, 1, 1, device=self.device)
-                # fake = self.model_generator(noise)
-                # self.label.fill_(self.fake_label)
-                # disp1_fake, disp2_fake, disp3_fake, disp4_fake, logicstics_fake = self.model_discriminator(
-                #     fake.detach())
-                # loss_fake = self.loss_function([disp1_fake, disp2_fake, disp3_fake, disp4_fake], [fake, right])
-                # losses_fake.append(loss_fake)
-                # errD_fake = self.criterion(logicstics_fake, self.label)
-                # d_g_z1 = logicstics_fake.mean().item()
-                # errD = errD_real + errD_fake
-                # self.optimizer_discriminator.step()
-                #
-                # print("calculate total error")
-                #
-                # self.model_generator.zero_grad()
-                # self.label.fill_(self.real_label)  # fake labels are real for generator cost
-                # disp1_fake_1, disp2_fake_1, disp3_fake_1, disp4_fake_1, logicstics_fake_1 = self.model_discriminator(fake)
-                # errG = self.criterion(logicstics_fake_1, self.label)
-                #
-                # d_g_z2 = logicstics_fake_1.mean().item()
-                # self.optimizer_generator.step()
+                self.optimizer_generator.step()
 
-                # print('[%d/%d][%d/%d] Loss_D: %.4f Loss_G: %.4f D(x): %.4f D(G(z)): %.4f / %.4f'
-                #       % (epoch, iterator, epoch, len(data),
-                #          errD.item(), errG.item(), self.d_x_real, d_g_z1, d_g_z2))
+                print('[%d/%d][%d/%d] Loss_D: %.4f Loss_G: %.4f D(x): %.4f D(G(z)): %.4f / %.4f'
+                      % (epoch, iterator, epoch, len(data),
+                         total_loss.item(), loss_g_fake.item(), loss_d_real.item(), loss_d_fake.item(), loss_g_fake.item()))
                 if epoch % 100 == 0:
                     fake = self.model_generator(self.fixed_noise)
                     vutils.save_image(fake.detach(),
