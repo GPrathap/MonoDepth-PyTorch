@@ -15,6 +15,7 @@ import numpy as np
 #import sklearn.datasets
 
 from tensorboardX import SummaryWriter
+from torch.autograd import Variable
 
 import pdb
 import gpustat
@@ -387,6 +388,7 @@ class Model:
 
                     # final disc cost
                     disc_cost = disc_fake - disc_real
+                    disc_cost = Variable(disc_cost, requires_grad=True)
                     # disc_cost = disc_fake - disc_real + gradient_penalty
                     disc_cost.backward()
                     w_dist = disc_fake - disc_real
