@@ -7,6 +7,29 @@ import torch.optim as optim
 import torch.nn as nn
 import torchvision.utils as vutils
 # custom modules
+import time
+import functools
+import argparse
+
+import numpy as np
+#import sklearn.datasets
+
+from tensorboardX import SummaryWriter
+
+import pdb
+import gpustat
+
+
+import torch
+import torchvision
+from torch import nn
+from torch import autograd
+from torch import optim
+from torchvision import transforms, datasets
+from torch.autograd import grad
+from timeit import default_timer as timer
+
+import torch.nn.init as init
 
 
 from loss import MonodepthLoss
@@ -67,7 +90,7 @@ def return_arguments():
                         help='number of total epochs to run')
     parser.add_argument('--learning_rate', default=1e-4,
                         help='initial learning rate (default: 1e-4)')
-    parser.add_argument('--batch_size', default=5,
+    parser.add_argument('--batch_size', default=64,
                         help='mini-batch size (default: 256)')
     parser.add_argument('--adjust_lr', default=True,
                         help='apply learning rate decay or not\
@@ -108,6 +131,8 @@ def return_arguments():
     parser.add_argument('--ngf', type=int, default=64)
     parser.add_argument('--ndf', type=int, default=64)
     parser.add_argument('--nc', type=int, default=3)
+    parser.add_argument('--generator_iterations', type=int, default=1)
+    parser.add_argument('--discriminator_iterations', type=int, default=1)
     args = parser.parse_args()
     return args
 
@@ -224,6 +249,11 @@ class Model:
 
         self.criterion = nn.BCELoss().to(self.device)
 
+        self.one = torch.FloatTensor([1])
+        self.mone = self.one * -1
+        self.one = self.one.to(self.device)
+        self.mone = self.mone.to(self.device)
+
         if args.use_multiple_gpu:
             self.model_discriminator = torch.nn.DataParallel(self.model_discriminator)
 
@@ -294,42 +324,74 @@ class Model:
                 data = to_device(data, self.device)
                 left = data['left_image']
                 right = data['right_image']
-                # One optimization iteration
-                self.optimizer_discriminator.zero_grad()
 
-                disp1, disp2, disp3, disp4 = self.model_discriminator(left)
-                loss_real, loss_real_image = self.loss_function([disp1, disp2, disp3, disp4], [left, right])
-                self.label = torch.full((left.shape[0],), self.real_label, device=self.device)
-                # loss_d_real = self.criterion(loss_real_image, self.label)
-                # losses_real.append(loss_d_real.item())
-                # loss_d_real.backward()
+                start_time = time.time()
+                print("Iter: " + str(iterator))
+                start = timer()
+                # ---------------------TRAIN G------------------------
+                for p in self.model_discriminator.parameters():
+                    p.requires_grad_(False)  # freeze D
 
-                # Fake images
-                noise = torch.randn(self.args.batch_size, self.nz, 1, 1, device=self.device)
-                fake = self.model_generator(noise)
-                self.label.fill_(self.fake_label)
-                disp1_fake, disp2_fake, disp3_fake, disp4_fake = self.model_discriminator(fake.detach())
-                loss_fake, loss_fake_image = self.loss_function([disp1_fake, disp2_fake, disp3_fake, disp4_fake], [fake, right])
-                # loss_d_fake = self.criterion(loss_fake_image, self.label)
-                # losses_fake.append(loss_d_fake)
-                # loss_d_fake.backward()
-
-                # total_loss = loss_d_real + loss_d_fake
-                #
-                self.optimizer_discriminator.step()
-
-                self.model_generator.zero_grad()
-                self.label.fill_(self.real_label)  # fake labels are real for generator cost
-                disp1_fake_1, disp2_fake_1, disp3_fake_1, disp4_fake_1 = self.model_discriminator(fake)
-                loss_generator, loss_g_fake_image = self.loss_function([disp1_fake_1, disp2_fake_1, disp3_fake_1, disp4_fake_1], [left, right])
-                loss_g_fake = self.criterion(loss_g_fake_image, self.label)
+                gen_cost = None
+                for i in range(self.args.generator_iterations):
+                    print("Generator iters: " + str(i))
+                    self.optimizer_generator.zero_grad()
+                    noise = torch.randn(self.args.batch_size, self.nz, 1, 1, device=self.device)
+                    noise.requires_grad_(True)
+                    fake_data = self.model_generator(noise)
+                    disp1_fake, disp2_fake, disp3_fake, disp4_fake = self.model_discriminator(fake_data)
+                    loss_fake, loss_fake_image = self.loss_function([disp1_fake, disp2_fake, disp3_fake, disp4_fake],
+                                                                    [fake_data, right])
+                    gen_cost = loss_fake.mean()
+                    gen_cost.backward(self.mone)
+                    gen_cost = -gen_cost
 
                 self.optimizer_generator.step()
+                end = timer()
+                print('---train G elapsed time: %d'.format(end - start))
 
-                # print('[%d/%d][%d/%d] Loss_D: %.4f Loss_G: %.4f D(x): %.4f D(G(z)): %.4f / %.4f'
-                #       % (epoch, iterator, epoch, len(data),
-                #          total_loss.item(), loss_g_fake.item(), loss_d_real.item(), loss_d_fake.item(), loss_g_fake.item()))
-                if epoch % 100 == 0:
+                # ---------------------TRAIN D------------------------
+                for p in self.model_generator.parameters():  # reset requires_grad
+                    p.requires_grad_(True)  # they are set to False below in training G
+                for i in range(self.args.discriminator_iterations):
+                    print("Critic iter: " + str(i))
+
+                    start = timer()
+                    self.model_discriminator.zero_grad()
+
+                    # gen fake data and load real data
+                    noise = torch.randn(self.args.batch_size, self.nz, 1, 1, device=self.device)
+                    with torch.no_grad():
+                        noisev = noise  # totally freeze G, training D
+                    fake_data = self.model_generator(noisev).detach()
+                    end = timer()
+                    print('---gen G elapsed time: %d'.format(end - start))
+                    start = timer()
+
+                    # train with real data
+                    disp1, disp2, disp3, disp4 = self.model_discriminator(left)
+                    loss_real, loss_real_image = self.loss_function([disp1, disp2, disp3, disp4], [left, right])
+                    disc_real = loss_real.mean()
+
+                    # train with fake data
+                    disp1_fake, disp2_fake, disp3_fake, disp4_fake = self.model_discriminator(fake_data)
+                    loss_fake, loss_fake_image = self.loss_function([disp1_fake, disp2_fake, disp3_fake, disp4_fake],
+                                                                    [fake_data, right])
+
+                    disc_fake = loss_fake.mean()
+
+                    self.showMemoryUsage(0)
+                    # train with interpolates data
+                    gradient_penalty = self.calc_gradient_penalty(left, fake_data, right)
+                    # showMemoryUsage(0)
+
+                    # final disc cost
+                    disc_cost = disc_fake - disc_real + gradient_penalty
+                    disc_cost.backward()
+                    w_dist = disc_fake - disc_real
+                    self.optimizer_discriminator.step()
+
+                if epoch % 5 == 0:
                     fake = self.model_generator(self.fixed_noise)
                     vutils.save_image(fake.detach(),
                                       '%s/fake_samples_epoch_%03d.png' % (self.args.output_image_directory, epoch),
@@ -371,8 +433,8 @@ class Model:
                                                                               0)))
                     plt.show()
 
-                for i in range(len(loss_real)):
-                    running_loss += loss_real[i].item()
+                # for i in range(len(loss_real)):
+                #     running_loss += loss_real[i].item()
 
             running_val_loss = 0.0
             self.model_discriminator.eval()
@@ -380,10 +442,11 @@ class Model:
                 data = to_device(data, self.device)
                 left = data['left_image']
                 right = data['right_image']
-                disps = self.model_discriminator(left)
-                loss = self.loss_function(disps, [left, right])
-                val_losses.append(loss.item())
-                running_val_loss += loss.item()
+                disp1, disp2, disp3, disp4 = self.model_discriminator(left)
+                loss, loss_fake_image = self.loss_function([disp1, disp2, disp3, disp4], [left, right])
+                for i in range(len(loss)):
+                    val_losses.append(loss[i].item())
+                    running_val_loss += loss[i].item()
 
             # Estimate loss per image
             running_loss /= self.n_img / self.args.batch_size
@@ -408,11 +471,40 @@ class Model:
         print('Finished Training. Best loss:', best_loss_real)
         self.save(self.args.model_path)
 
+
     def save(self, path):
         torch.save(self.model_discriminator.state_dict(), path)
 
     def load(self, path):
         self.model_discriminator.load_state_dict(torch.load(path))
+
+    def showMemoryUsage(self, device):
+        gpu_stats = gpustat.GPUStatCollection.new_query()
+        item = gpu_stats.jsonify()["gpus"][device]
+        print('Used/total: ' + "{}/{}".format(item["memory.used"], item["memory.total"]))
+
+    def calc_gradient_penalty(self, real_data, fake_data, right):
+        alpha = torch.rand(self.args.batch_size, 1)
+        alpha = alpha.expand(self.args.batch_size, int(real_data.nelement() / self.args.batch_size)).contiguous()
+        alpha = alpha.view(self.args.batch_size, 3, self.args.input_height, self.args.input_width)
+        alpha = alpha.to(self.device)
+
+        fake_data = fake_data.view(self.args.batch_size, 3, self.args.input_height, self.args.input_width)
+        interpolates = alpha * real_data.detach() + ((1 - alpha) * fake_data.detach())
+
+        interpolates = interpolates.to(self.device)
+        interpolates.requires_grad_(True)
+
+        disp1, disp2, disp3, disp4 = self.model_discriminator(interpolates)
+        loss, loss_fake_image = self.loss_function([disp1, disp2, disp3, disp4], [interpolates, right])
+
+        gradients = autograd.grad(outputs=loss, inputs=interpolates,
+                                  grad_outputs=torch.ones(loss.size()).to(self.device),
+                                  create_graph=True, retain_graph=True, only_inputs=True)[0]
+
+        gradients = gradients.view(gradients.size(0), -1)
+        gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * 10
+        return gradient_penalty
 
     def test(self):
         self.model_discriminator.eval()
