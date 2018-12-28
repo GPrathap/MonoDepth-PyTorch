@@ -409,6 +409,20 @@ class Model:
                     disc_cost.backward()
                     self.optimizer_discriminator.step()
 
+                    running_loss += disc_cost.item()
+
+                    print(
+                        'Epoch:',
+                        epoch + 1,
+                        'train_loss:',
+                        running_loss,
+                        'val_loss:',
+                        running_val_loss,
+                        'time:',
+                        round(time.time() - c_time, 3),
+                        's',
+                    )
+
                 # print('[%d/%d][%d] Loss_D: %.4f Loss_G: %.4f '
                 #       % (epoch, iterator, len(data), disc_cost, gen_cost))
 
