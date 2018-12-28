@@ -415,7 +415,7 @@ class Model:
                         'Epoch:',
                         epoch + 1,
                         'train_loss:',
-                        running_loss,
+                        disc_cost.item(),
                         'val_loss:',
                         running_val_loss,
                         'time:',
