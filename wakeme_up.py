@@ -487,7 +487,7 @@ class Model:
                 left = data['left_image']
                 right = data['right_image']
                 disps = self.model_discriminator(left)
-                loss = self.loss_function(disps, [left, right])
+                loss, _ = self.loss_function(disps, [left, right])
                 # for i in range(len(loss)):
                 #     val_losses.append(loss[i].item())
                 #     running_val_loss += loss[i].item()
