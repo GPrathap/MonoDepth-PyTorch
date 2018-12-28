@@ -411,17 +411,17 @@ class Model:
 
                     running_loss += disc_cost.item()
 
-                    print(
-                        'Epoch:',
-                        epoch + 1,
-                        'train_loss:',
-                        disc_cost.item(),
-                        'val_loss:',
-                        running_val_loss,
-                        'time:',
-                        round(time.time() - c_time, 3),
-                        's',
-                    )
+                    # print(
+                    #     'Epoch:',
+                    #     epoch + 1,
+                    #     'train_loss:',
+                    #     disc_cost.item(),
+                    #     'val_loss:',
+                    #     running_val_loss,
+                    #     'time:',
+                    #     round(time.time() - c_time, 3),
+                    #     's',
+                    # )
 
                 # print('[%d/%d][%d] Loss_D: %.4f Loss_G: %.4f '
                 #       % (epoch, iterator, len(data), disc_cost, gen_cost))
