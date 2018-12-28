@@ -91,7 +91,7 @@ def return_arguments():
                         help='number of total epochs to run')
     parser.add_argument('--learning_rate', default=1e-4,
                         help='initial learning rate (default: 1e-4)')
-    parser.add_argument('--batch_size', default=8,
+    parser.add_argument('--batch_size', default=2,
                         help='mini-batch size (default: 256)')
     parser.add_argument('--adjust_lr', default=True,
                         help='apply learning rate decay or not\
@@ -228,7 +228,7 @@ class Model:
         # Set up model
         self.device = args.device
 
-        self.fixed_noise = torch.randn(self.args.batch_size, self.args.nz, 1, 1, device=self.device)
+        # self.fixed_noise = torch.randn(self.args.batch_size, self.args.nz, 1, 1, device=self.device)
         self.real_label = 1
         self.fake_label = 0
 
@@ -247,15 +247,15 @@ class Model:
                                              pretrained=args.pretrained)
         self.model_discriminator = self.model_discriminator.to(self.device)
 
-        self.criterion = nn.BCELoss().to(self.device)
+        # self.criterion = nn.BCELoss().to(self.device)
 
         self.one = torch.FloatTensor([1])
         self.mone = self.one * -1
         self.one = self.one.to(self.device)
         self.mone = self.mone.to(self.device)
 
-        if args.use_multiple_gpu:
-            self.model_discriminator = torch.nn.DataParallel(self.model_discriminator)
+        # if args.use_multiple_gpu:
+        #     self.model_discriminator = torch.nn.DataParallel(self.model_discriminator)
 
         if args.mode == 'train':
             self.loss_function = MonodepthLoss(
@@ -303,10 +303,11 @@ class Model:
             left = data['left_image']
             right = data['right_image']
             disp1, disp2, disp3, disp4 = self.model_discriminator(left)
-            loss, loss_fake_image = self.loss_function([disp1, disp2, disp3, disp4], [left, right])
-            for i in range(len(loss)):
-                val_losses.append(loss[i].item())
-                running_val_loss += loss[i].item()
+            loss, _ = self.loss_function([disp1, disp2, disp3, disp4], [left, right])
+            # for i in range(len(loss)):
+            #     val_losses.append(loss[i].item())
+            #     running_val_loss += loss[i].item()
+            running_val_loss += loss.item()
 
         running_val_loss = running_val_loss / (self.val_n_img / self.args.batch_size)
         print('Val_loss:', running_val_loss)
@@ -464,9 +465,10 @@ class Model:
                 right = data['right_image']
                 disp1, disp2, disp3, disp4 = self.model_discriminator(left)
                 loss, loss_fake_image = self.loss_function([disp1, disp2, disp3, disp4], [left, right])
-                for i in range(len(loss)):
-                    val_losses.append(loss[i].item())
-                    running_val_loss += loss[i].item()
+                # for i in range(len(loss)):
+                #     val_losses.append(loss[i].item())
+                #     running_val_loss += loss[i].item()
+                running_val_loss += loss.item()
 
             # Estimate loss per image
             running_loss /= self.n_img / self.args.batch_size

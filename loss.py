@@ -120,20 +120,19 @@ class MonodepthLoss(nn.modules.Module):
 
         self.disp_left_est = disp_left_est
         self.disp_right_est = disp_right_est
-
-
         # Generate images
         left_est = [self.generate_image_left(right_pyramid[i],
-                                             disp_left_est[i]) for i in range(self.n)]
-        right_est = [self.generate_image_right(left_pyramid[i], disp_right_est[i]) for i in range(self.n)]
+                    disp_left_est[i]) for i in range(self.n)]
+        right_est = [self.generate_image_right(left_pyramid[i],
+                     disp_right_est[i]) for i in range(self.n)]
         self.left_est = left_est
         self.right_est = right_est
 
         # L-R Consistency
         right_left_disp = [self.generate_image_left(disp_right_est[i],
-                                                    disp_left_est[i]) for i in range(self.n)]
+                           disp_left_est[i]) for i in range(self.n)]
         left_right_disp = [self.generate_image_right(disp_left_est[i],
-                                                     disp_right_est[i]) for i in range(self.n)]
+                           disp_right_est[i]) for i in range(self.n)]
 
         # Disparities smoothness
         disp_left_smoothness = self.disp_smoothness(disp_left_est,
@@ -141,97 +140,181 @@ class MonodepthLoss(nn.modules.Module):
         disp_right_smoothness = self.disp_smoothness(disp_right_est,
                                                      right_pyramid)
 
-        # left_est_swapped = torch.cat(left_est, dim=1).swapaxes(0,1)
-        # right_est_swapped = np.array(right_est).swapaxes(0,1)
-        # left_pyramid_swapped = np.array(left_pyramid).swapaxes(0,1)
-        # right_pyramid_swapped = np.array(right_pyramid).swapaxes(0,1)left_est_swapped = torch.cat(left_est, dim=1).swapaxes(0,1)
-        # right_est_swapped = np.array(right_est).swapaxes(0,1)
-        # left_pyramid_swapped = np.array(left_pyramid).swapaxes(0,1)
-        # right_pyramid_swapped = np.array(right_pyramid).swapaxes(0,1)
-
-        l1_left = []
-        l1_right = []
-        ssim_left = []
-        ssim_right = []
-        lr_left = []
-        lr_right = []
-        disp_right = []
-        disp_left = []
-        for j in range(left_est[0].shape[0]):
-
-            l1_left_error = 0
-            l1_right_error = 0
-            ssim_left_error = 0
-            ssim_right_error = 0
-            lr_left_error = 0
-            lr_right_error = 0
-            disp_left_error = 0
-            disp_right_error = 0
-            for i in range(self.n):
-                l1_left_error += torch.mean(torch.abs(left_est[i][j] - left_pyramid[i][j]))
-                l1_right_error += torch.mean(torch.abs(right_est[i][j] - right_pyramid[i][j]))
-                ssim_left_error += torch.mean(self.SSIM(left_est[i][j], left_pyramid[i][j]))
-                ssim_right_error += torch.mean(self.SSIM(right_est[i][j], right_pyramid[i][j]))
-                lr_left_error += torch.mean(torch.abs(right_left_disp[i][j]- disp_left_est[i][j]))
-                lr_right_error += torch.mean(torch.abs(left_right_disp[i][j]- disp_right_est[i][j]))
-                disp_left_error += torch.mean(torch.abs(disp_left_smoothness[i][j])) / 2 ** i
-                disp_right_error += torch.mean(torch.abs(disp_right_smoothness[i][j])) / 2 ** i
-
-            l1_left.append(l1_left_error/self.n)
-            l1_right.append(l1_right_error/self.n)
-            ssim_left.append(ssim_left_error/self.n)
-            ssim_right.append(ssim_right_error/self.n)
-            lr_left.append(lr_left_error/self.n)
-            lr_right.append(lr_right_error / self.n)
-            disp_right.append(disp_left_error/self.n)
-            disp_left.append(disp_right_error/self.n)
-
-
-        # # L1
-        # l1_left = [torch.mean(torch.abs(left_est_swapped[i] - left_pyramid_swapped[i]))
-        #            for i in range(left_est_swapped.shape[0])]
-        #
-        # l1_right = [torch.mean(torch.abs(right_est_swapped[i]
-        #                                  - right_pyramid_swapped[i])) for i in range(left_est_swapped.shape[0])]
+        # L1
+        l1_left = [torch.mean(torch.abs(left_est[i] - left_pyramid[i]))
+                   for i in range(self.n)]
+        l1_right = [torch.mean(torch.abs(right_est[i]
+                    - right_pyramid[i])) for i in range(self.n)]
 
         # SSIM
-        # ssim_left = [self.SSIM(left_est[i],
-        #                                   left_pyramid[i]) for i in range(self.n)]
-        # ssim_right = [self.SSIM(right_est[i],
-        #                                    right_pyramid[i]) for i in range(self.n)]
+        ssim_left = [torch.mean(self.SSIM(left_est[i],
+                     left_pyramid[i])) for i in range(self.n)]
+        ssim_right = [torch.mean(self.SSIM(right_est[i],
+                      right_pyramid[i])) for i in range(self.n)]
 
         image_loss_left = [self.SSIM_w * ssim_left[i]
                            + (1 - self.SSIM_w) * l1_left[i]
-                           for i in range(left_est[0].shape[0])]
+                           for i in range(self.n)]
         image_loss_right = [self.SSIM_w * ssim_right[i]
                             + (1 - self.SSIM_w) * l1_right[i]
-                            for i in range(left_est[0].shape[0])]
-
-        image_loss = [image_loss_left[i] + image_loss_right[i] for i in range(left_est[0].shape[0])]
+                            for i in range(self.n)]
+        image_loss = sum(image_loss_left + image_loss_right)
 
         # L-R Consistency
-        # lr_left_loss = [torch.mean(torch.abs(right_left_disp[i]
-        #                                      - disp_left_est[i])) for i in range(self.n)]
-        # lr_right_loss = [torch.mean(torch.abs(left_right_disp[i]
-        #                                       - disp_right_est[i])) for i in range(self.n)]
-        # lr_loss = sum(lr_left_loss + lr_right_loss)
-        lr_loss = [lr_left[i] + lr_right[i] for i in range(left_est[0].shape[0])]
+        lr_left_loss = [torch.mean(torch.abs(right_left_disp[i]
+                        - disp_left_est[i])) for i in range(self.n)]
+        lr_right_loss = [torch.mean(torch.abs(left_right_disp[i]
+                         - disp_right_est[i])) for i in range(self.n)]
+        lr_loss = sum(lr_left_loss + lr_right_loss)
 
         # Disparities smoothness
-        # disp_left_loss = [torch.mean(torch.abs(
-        #     disp_left_smoothness[i])) / 2 ** i
-        #                   for i in range(self.n)]
-        # disp_right_loss = [torch.mean(torch.abs(
-        #     disp_right_smoothness[i])) / 2 ** i
-        #                    for i in range(self.n)]
-        # disp_gradient_loss = sum(disp_left_loss + disp_right_loss)
-        disp_gradient_loss = [disp_left[i] + disp_right[i] for i in range(left_est[0].shape[0])]
+        disp_left_loss = [torch.mean(torch.abs(
+                          disp_left_smoothness[i])) / 2 ** i
+                          for i in range(self.n)]
+        disp_right_loss = [torch.mean(torch.abs(
+                           disp_right_smoothness[i])) / 2 ** i
+                           for i in range(self.n)]
+        disp_gradient_loss = sum(disp_left_loss + disp_right_loss)
 
-        # loss = image_loss + self.disp_gradient_w * disp_gradient_loss \
-        #        + self.lr_w * lr_loss
-        loss = [image_loss[i] + self.lr_w*lr_loss[i] + self.disp_gradient_w*disp_gradient_loss[i] for i in range(left_est[0].shape[0])]
-        loss = torch.stack(loss)
-        self.image_loss = torch.stack(image_loss)
+        loss = image_loss + self.disp_gradient_w * disp_gradient_loss\
+               + self.lr_w * lr_loss
+        self.image_loss = image_loss
         self.disp_gradient_loss = disp_gradient_loss
         self.lr_loss = lr_loss
         return loss, self.image_loss
+
+
+    # def forward(self, input, target):
+    #     """
+    #     Args:
+    #         input [disp1, disp2, disp3, disp4]
+    #         target [left, right]
+    #
+    #     Return:
+    #         (float): The loss
+    #     """
+    #     left, right = target
+    #     left_pyramid = self.scale_pyramid(left, self.n)
+    #     right_pyramid = self.scale_pyramid(right, self.n)
+    #
+    #     # Prepare disparities
+    #     disp_left_est = [d[:, 0, :, :].unsqueeze(1) for d in input]
+    #     disp_right_est = [d[:, 1, :, :].unsqueeze(1) for d in input]
+    #
+    #     self.disp_left_est = disp_left_est
+    #     self.disp_right_est = disp_right_est
+    #
+    #
+    #     # Generate images
+    #     left_est = [self.generate_image_left(right_pyramid[i],
+    #                                          disp_left_est[i]) for i in range(self.n)]
+    #     right_est = [self.generate_image_right(left_pyramid[i], disp_right_est[i]) for i in range(self.n)]
+    #     self.left_est = left_est
+    #     self.right_est = right_est
+    #
+    #     # L-R Consistency
+    #     right_left_disp = [self.generate_image_left(disp_right_est[i],
+    #                                                 disp_left_est[i]) for i in range(self.n)]
+    #     left_right_disp = [self.generate_image_right(disp_left_est[i],
+    #                                                  disp_right_est[i]) for i in range(self.n)]
+    #
+    #     # Disparities smoothness
+    #     disp_left_smoothness = self.disp_smoothness(disp_left_est,
+    #                                                 left_pyramid)
+    #     disp_right_smoothness = self.disp_smoothness(disp_right_est,
+    #                                                  right_pyramid)
+    #
+    #     # left_est_swapped = torch.cat(left_est, dim=1).swapaxes(0,1)
+    #     # right_est_swapped = np.array(right_est).swapaxes(0,1)
+    #     # left_pyramid_swapped = np.array(left_pyramid).swapaxes(0,1)
+    #     # right_pyramid_swapped = np.array(right_pyramid).swapaxes(0,1)left_est_swapped = torch.cat(left_est, dim=1).swapaxes(0,1)
+    #     # right_est_swapped = np.array(right_est).swapaxes(0,1)
+    #     # left_pyramid_swapped = np.array(left_pyramid).swapaxes(0,1)
+    #     # right_pyramid_swapped = np.array(right_pyramid).swapaxes(0,1)
+    #
+    #     l1_left = []
+    #     l1_right = []
+    #     ssim_left = []
+    #     ssim_right = []
+    #     lr_left = []
+    #     lr_right = []
+    #     disp_right = []
+    #     disp_left = []
+    #     for j in range(left_est[0].shape[0]):
+    #
+    #         l1_left_error = 0
+    #         l1_right_error = 0
+    #         ssim_left_error = 0
+    #         ssim_right_error = 0
+    #         lr_left_error = 0
+    #         lr_right_error = 0
+    #         disp_left_error = 0
+    #         disp_right_error = 0
+    #         for i in range(self.n):
+    #             l1_left_error += torch.mean(torch.abs(left_est[i][j] - left_pyramid[i][j]))
+    #             l1_right_error += torch.mean(torch.abs(right_est[i][j] - right_pyramid[i][j]))
+    #             ssim_left_error += torch.mean(self.SSIM(left_est[i][j], left_pyramid[i][j]))
+    #             ssim_right_error += torch.mean(self.SSIM(right_est[i][j], right_pyramid[i][j]))
+    #             lr_left_error += torch.mean(torch.abs(right_left_disp[i][j]- disp_left_est[i][j]))
+    #             lr_right_error += torch.mean(torch.abs(left_right_disp[i][j]- disp_right_est[i][j]))
+    #             disp_left_error += torch.mean(torch.abs(disp_left_smoothness[i][j])) / 2 ** i
+    #             disp_right_error += torch.mean(torch.abs(disp_right_smoothness[i][j])) / 2 ** i
+    #
+    #         l1_left.append(l1_left_error/self.n)
+    #         l1_right.append(l1_right_error/self.n)
+    #         ssim_left.append(ssim_left_error/self.n)
+    #         ssim_right.append(ssim_right_error/self.n)
+    #         lr_left.append(lr_left_error/self.n)
+    #         lr_right.append(lr_right_error / self.n)
+    #         disp_right.append(disp_left_error/self.n)
+    #         disp_left.append(disp_right_error/self.n)
+    #
+    #
+    #     # # L1
+    #     # l1_left = [torch.mean(torch.abs(left_est_swapped[i] - left_pyramid_swapped[i]))
+    #     #            for i in range(left_est_swapped.shape[0])]
+    #     #
+    #     # l1_right = [torch.mean(torch.abs(right_est_swapped[i]
+    #     #                                  - right_pyramid_swapped[i])) for i in range(left_est_swapped.shape[0])]
+    #
+    #     # SSIM
+    #     # ssim_left = [self.SSIM(left_est[i],
+    #     #                                   left_pyramid[i]) for i in range(self.n)]
+    #     # ssim_right = [self.SSIM(right_est[i],
+    #     #                                    right_pyramid[i]) for i in range(self.n)]
+    #
+    #     image_loss_left = [self.SSIM_w * ssim_left[i]
+    #                        + (1 - self.SSIM_w) * l1_left[i]
+    #                        for i in range(left_est[0].shape[0])]
+    #     image_loss_right = [self.SSIM_w * ssim_right[i]
+    #                         + (1 - self.SSIM_w) * l1_right[i]
+    #                         for i in range(left_est[0].shape[0])]
+    #
+    #     image_loss = [image_loss_left[i] + image_loss_right[i] for i in range(left_est[0].shape[0])]
+    #
+    #     # L-R Consistency
+    #     # lr_left_loss = [torch.mean(torch.abs(right_left_disp[i]
+    #     #                                      - disp_left_est[i])) for i in range(self.n)]
+    #     # lr_right_loss = [torch.mean(torch.abs(left_right_disp[i]
+    #     #                                       - disp_right_est[i])) for i in range(self.n)]
+    #     # lr_loss = sum(lr_left_loss + lr_right_loss)
+    #     lr_loss = [lr_left[i] + lr_right[i] for i in range(left_est[0].shape[0])]
+    #
+    #     # Disparities smoothness
+    #     # disp_left_loss = [torch.mean(torch.abs(
+    #     #     disp_left_smoothness[i])) / 2 ** i
+    #     #                   for i in range(self.n)]
+    #     # disp_right_loss = [torch.mean(torch.abs(
+    #     #     disp_right_smoothness[i])) / 2 ** i
+    #     #                    for i in range(self.n)]
+    #     # disp_gradient_loss = sum(disp_left_loss + disp_right_loss)
+    #     disp_gradient_loss = [disp_left[i] + disp_right[i] for i in range(left_est[0].shape[0])]
+    #
+    #     # loss = image_loss + self.disp_gradient_w * disp_gradient_loss \
+    #     #        + self.lr_w * lr_loss
+    #     loss = [image_loss[i] + self.lr_w*lr_loss[i] + self.disp_gradient_w*disp_gradient_loss[i] for i in range(left_est[0].shape[0])]
+    #     loss = torch.stack(loss)
+    #     self.image_loss = torch.stack(image_loss)
+    #     self.disp_gradient_loss = disp_gradient_loss
+    #     self.lr_loss = lr_loss
+    #     return loss, self.image_loss
