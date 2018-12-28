@@ -91,7 +91,7 @@ def return_arguments():
                         help='number of total epochs to run')
     parser.add_argument('--learning_rate', default=1e-4,
                         help='initial learning rate (default: 1e-4)')
-    parser.add_argument('--batch_size', default=2,
+    parser.add_argument('--batch_size', default=8,
                         help='mini-batch size (default: 256)')
     parser.add_argument('--adjust_lr', default=True,
                         help='apply learning rate decay or not\
@@ -411,11 +411,11 @@ class Model:
                 # print('[%d/%d][%d] Loss_D: %.4f Loss_G: %.4f '
                 #       % (epoch, iterator, len(data), disc_cost, gen_cost))
 
-                if epoch % 5 == 0:
-                    fake = self.model_generator(self.fixed_noise)
-                    vutils.save_image(fake.detach(),
-                                      '%s/fake_samples_epoch_%03d.png' % (self.args.output_image_directory, epoch),
-                                      normalize=True)
+                # if epoch % 5 == 0:
+                #     fake = self.model_generator(self.fixed_noise)
+                #     vutils.save_image(fake.detach(),
+                #                       '%s/fake_samples_epoch_%03d.png' % (self.args.output_image_directory, epoch),
+                #                       normalize=True)
 
                 # Print statistics
                 if self.args.print_weights:
@@ -561,7 +561,6 @@ def main():
     elif args.mode == 'test':
         model_test = Model(args)
         model_test.test()
-
 
 if __name__ == '__main__':
     main()
