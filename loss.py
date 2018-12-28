@@ -181,7 +181,7 @@ class MonodepthLoss(nn.modules.Module):
         self.image_loss = image_loss
         self.disp_gradient_loss = disp_gradient_loss
         self.lr_loss = lr_loss
-        return loss, self.image_loss
+        return loss
 
 
     # def forward(self, input, target):
