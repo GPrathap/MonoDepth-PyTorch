@@ -345,7 +345,7 @@ class Model:
 
 
                 start_time = time.time()
-                print("Iter: " + str(iterator))
+                # print("Iter: " + str(iterator))
                 start = timer()
                 # ---------------------TRAIN G------------------------
                 for p in self.model_discriminator.parameters():
@@ -397,7 +397,7 @@ class Model:
                     loss_fake = self.loss_function(disps_fake1, [fake_data, right])
                     disc_fake = loss_fake.mean()
 
-                    self.showMemoryUsage(0)
+                    # self.showMemoryUsage(0)
                     # train with interpolates data
                     # gradient_penalty = self.calc_gradient_penalty(left, fake_data, right)
                     # showMemoryUsage(0)
@@ -426,7 +426,7 @@ class Model:
                 # print('[%d/%d][%d] Loss_D: %.4f Loss_G: %.4f '
                 #       % (epoch, iterator, len(data), disc_cost, gen_cost))
 
-                if epoch % 5 == 0:
+                if epoch % 1 == 0:
                     fake = self.model_generator(self.fixed_noise)
                     vutils.save_image(fake.detach(),
                                       '%s/fake_samples_epoch_%03d.png' % (self.args.output_image_directory, epoch),
