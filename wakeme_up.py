@@ -141,7 +141,6 @@ def return_arguments():
 def adjust_learning_rate(optimizer, epoch, learning_rate):
     """Sets the learning rate to the initial LR\
         decayed by 2 every 10 epochs after 30 epoches"""
-
     if epoch >= 30 and epoch < 40:
         lr = learning_rate / 2
     elif epoch >= 40:
@@ -238,11 +237,11 @@ class Model:
         self.ngf = int(self.args.ngf)
         self.ndf = int(self.args.ndf)
 
-        self.model_generator = Generator(self.args).to(self.device)
-        self.model_generator.apply(weights_init)
-        if self.args.netG != '':
-            self.model_generator.load_state_dict(torch.load(self.args.netG))
-        print(self.model_generator)
+        # self.model_generator = Generator(self.args).to(self.device)
+        # self.model_generator.apply(weights_init)
+        # if self.args.netG != '':
+        #     self.model_generator.load_state_dict(torch.load(self.args.netG))
+        # print(self.model_generator)
 
         self.model_discriminator = get_model(args.model, input_channels=args.input_channels,
                                              pretrained=args.pretrained)
@@ -264,7 +263,7 @@ class Model:
                 SSIM_w=0.85,
                 disp_gradient_w=0.1, lr_w=1).to(self.device)
             self.optimizer_discriminator = optim.Adam(self.model_discriminator.parameters(), lr=args.learning_rate)
-            self.optimizer_generator = optim.Adam(self.model_generator.parameters(), lr=args.learning_rate)
+            # self.optimizer_generator = optim.Adam(self.model_generator.parameters(), lr=args.learning_rate)
 
             self.val_n_img, self.val_loader = prepare_dataloader(args.val_data_dir, args.mode,
                                                                  args.augment_parameters,
