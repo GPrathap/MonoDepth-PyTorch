@@ -202,6 +202,8 @@ class Model:
                 disps = self.model(left)
                 loss = self.loss_function(disps, [left, right])
                 loss.backward()
+                disc_real = loss.mean()
+
                 self.optimizer.step()
                 losses.append(loss.item())
 

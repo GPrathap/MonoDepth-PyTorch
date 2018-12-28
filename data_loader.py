@@ -21,9 +21,12 @@ class KittiLoader(Dataset):
         return len(self.left_paths)
 
     def __getitem__(self, idx):
+        # size = (256, 512)
         left_image = Image.open(self.left_paths[idx])
+        # left_image = left_image.resize(size, Image.ANTIALIAS)
         if self.mode == 'train':
             right_image = Image.open(self.right_paths[idx])
+            # right_image = right_image.resize(size, Image.ANTIALIAS)
             sample = {'left_image': left_image, 'right_image': right_image}
 
             if self.transform:
