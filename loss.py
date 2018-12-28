@@ -146,6 +146,18 @@ class MonodepthLoss(nn.modules.Module):
         l1_right = [torch.mean(torch.abs(right_est[i]
                     - right_pyramid[i])) for i in range(self.n)]
 
+        self.l1_left_image = []
+        self.l1_right_image = []
+
+        for j in range(left_est[0].shape[0]):
+            l1_left_error = 0
+            l1_right_error = 0
+            for i in range(self.n):
+                l1_left_error += torch.mean(torch.abs(left_est[i][j] - left_pyramid[i][j]))
+                l1_right_error += torch.mean(torch.abs(right_est[i][j] - right_pyramid[i][j]))
+            self.l1_left_image.append(l1_left_error / self.n)
+            self.l1_right_image.append(l1_right_error/self.n)
+
         # SSIM
         ssim_left = [torch.mean(self.SSIM(left_est[i],
                      left_pyramid[i])) for i in range(self.n)]
@@ -181,7 +193,8 @@ class MonodepthLoss(nn.modules.Module):
         self.image_loss = image_loss
         self.disp_gradient_loss = disp_gradient_loss
         self.lr_loss = lr_loss
-        return loss
+        self.image_loss_left_tensor = torch.stack(self.l1_left_image)
+        return loss, self.image_loss_left_tensor
 
 
     # def forward(self, input, target):

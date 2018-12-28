@@ -247,7 +247,7 @@ class Model:
                                              pretrained=args.pretrained)
         self.model_discriminator = self.model_discriminator.to(self.device)
 
-        # self.criterion = nn.BCELoss().to(self.device)
+        self.criterion = nn.BCELoss().to(self.device)
 
         self.one = torch.FloatTensor([1])
         self.mone = self.one * -1
@@ -303,7 +303,7 @@ class Model:
             left = data['left_image']
             right = data['right_image']
             disps = self.model_discriminator(left)
-            loss = self.loss_function(disps, [left, right])
+            loss, _ = self.loss_function(disps, [left, right])
             # for i in range(len(loss)):
             #     val_losses.append(loss[i].item())
             #     running_val_loss += loss[i].item()
@@ -359,11 +359,17 @@ class Model:
                     noise.requires_grad_(True)
                     fake_data = self.model_generator(noise)
                     disps_fake = self.model_discriminator(fake_data)
-                    loss_fake = self.loss_function(disps_fake, [fake_data, right])
+                    loss_fake, image_loss_fake = self.loss_function(disps_fake, [fake_data, right])
+                    self.label = torch.full((self.args.batch_size,), self.real_label, device=self.device)
+                    disc_real_image = self.criterion(image_loss_fake, self.label)
+                    disc_real_image_loss = disc_real_image.mean()
+                    disc_fake = loss_fake.mean()
                     # loss_fake.backward(self.mone)
-                    loss_fake.backward()
-                    gen_cost = loss_fake.mean()
-                    gen_cost = -gen_cost
+                    generator_total_loss = disc_real_image_loss + disc_fake
+                    generator_cost = Variable(generator_total_loss, requires_grad=True)
+                    generator_cost.backward()
+                    # loss_fake.backward()
+
 
                 self.optimizer_generator.step()
                 end = timer()
@@ -383,19 +389,21 @@ class Model:
                     with torch.no_grad():
                         noisev = noise  # totally freeze G, training D
                     fake_data = self.model_generator(noisev).detach()
-                    end = timer()
-                    # print('---gen G elapsed time: %d'.format(end - start))
-                    start = timer()
 
-                    # train with real data
+                    # train ith real data
                     disps_real = self.model_discriminator(left)
-                    loss_real = self.loss_function(disps_real, [left, right])
+                    loss_real, image_loss_real = self.loss_function(disps_real, [left, right])
                     disc_real = loss_real.mean()
+                    disc_real_image = self.criterion(image_loss_real, self.label)
+                    disc_real_image_loss = disc_real_image.mean()
 
                     # train with fake data
                     disps_fake1 = self.model_discriminator(fake_data)
-                    loss_fake = self.loss_function(disps_fake1, [fake_data, right])
+                    loss_fake, image_loss_fake = self.loss_function(disps_fake1, [fake_data, right])
                     disc_fake = loss_fake.mean()
+                    self.label.fill_(self.fake_label)
+                    disc_fake_image = self.criterion(image_loss_fake, self.label)
+                    disc_fake_image_loss = disc_fake_image.mean()
 
                     # self.showMemoryUsage(0)
                     # train with interpolates data
@@ -403,7 +411,8 @@ class Model:
                     # showMemoryUsage(0)
 
                     # final disc cost
-                    disc_cost = disc_fake - disc_real
+                    disc_cost = disc_real + disc_real_image_loss + disc_fake_image_loss + disc_fake
+
                     disc_cost = Variable(disc_cost, requires_grad=True)
                     # disc_cost = disc_fake - disc_real + gradient_penalty
                     disc_cost.backward()
