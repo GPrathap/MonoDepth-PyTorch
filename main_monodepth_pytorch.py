@@ -41,6 +41,11 @@ def return_arguments():
                         for tested images',
                         default="/root/wakemeup/output"
                         )
+    parser.add_argument('--output_image_directory',
+                        help='where save dispairities\
+                            for tested images',
+                        default="/root/wakemeup/images"
+                        )
     parser.add_argument('--input_height', type=int, help='input height',
                         default=256)
     parser.add_argument('--input_width', type=int, help='input width',
@@ -59,7 +64,7 @@ def return_arguments():
                         help='number of total epochs to run')
     parser.add_argument('--learning_rate', default=1e-4,
                         help='initial learning rate (default: 1e-4)')
-    parser.add_argument('--batch_size', default=256,
+    parser.add_argument('--batch_size', default=2, type=int,
                         help='mini-batch size (default: 256)')
     parser.add_argument('--adjust_lr', default=True,
                         help='apply learning rate decay or not\
@@ -93,8 +98,18 @@ def return_arguments():
     parser.add_argument('--num_workers', default=4,
                         help='Number of workers in dataloader')
     parser.add_argument('--use_multiple_gpu', default=False)
+    parser.add_argument('--nz', type=int, default=100, help='size of the latent z vector')
+    parser.add_argument('--ngpu', type=int, default=1, help='number of GPUs to use')
+    parser.add_argument('--netG', default='', help="path to netG (to continue training)")
+    parser.add_argument('--netD', default='', help="path to netD (to continue training)")
+    parser.add_argument('--ngf', type=int, default=64)
+    parser.add_argument('--ndf', type=int, default=64)
+    parser.add_argument('--nc', type=int, default=3)
+    parser.add_argument('--generator_iterations', type=int, default=1)
+    parser.add_argument('--discriminator_iterations', type=int, default=1)
     args = parser.parse_args()
     return args
+
 
 
 def adjust_learning_rate(optimizer, epoch, learning_rate):

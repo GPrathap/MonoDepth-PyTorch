@@ -249,10 +249,10 @@ class Model:
 
         # self.criterion = nn.BCELoss().to(self.device)
 
-        self.one = torch.FloatTensor([1])
-        self.mone = self.one * -1
-        self.one = self.one.to(self.device)
-        self.mone = self.mone.to(self.device)
+        # self.one = torch.FloatTensor([1])
+        # self.mone = self.one * -1
+        # self.one = self.one.to(self.device)
+        # self.mone = self.mone.to(self.device)
 
         # if args.use_multiple_gpu:
         #     self.model_discriminator = torch.nn.DataParallel(self.model_discriminator)
