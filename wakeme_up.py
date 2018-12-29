@@ -303,7 +303,7 @@ class Model:
             left = data['left_image']
             right = data['right_image']
             disps = self.model_discriminator(left)
-            loss, _ = self.loss_function(disps, [left, right])
+            loss, _ = self.loss_function(disps['disparity'], [left, right])
             # for i in range(len(loss)):
             #     val_losses.append(loss[i].item())
             #     running_val_loss += loss[i].item()
@@ -359,9 +359,9 @@ class Model:
                     noise.requires_grad_(True)
                     fake_data = self.model_generator(noise)
                     disps_fake = self.model_discriminator(fake_data)
-                    loss_fake, image_loss_fake = self.loss_function(disps_fake, [fake_data, right])
+                    loss_fake, _ = self.loss_function(disps_fake['disparity'], [fake_data, right])
                     self.label = torch.full((self.args.batch_size,), self.real_label, device=self.device)
-                    disc_real_image = self.criterion(image_loss_fake, self.label)
+                    disc_real_image = self.criterion(disps_fake['classification'], self.label)
                     disc_real_image_loss = disc_real_image.mean()
                     disc_fake = loss_fake.mean()
                     # loss_fake.backward(self.mone)
@@ -392,18 +392,20 @@ class Model:
 
                     # train ith real data
                     disps_real = self.model_discriminator(left)
-                    loss_real, image_loss_real = self.loss_function(disps_real, [left, right])
+                    loss_real, _ = self.loss_function(disps_real['disparity'], [left, right])
                     disc_real = loss_real.mean()
-                    disc_real_image = self.criterion(image_loss_real, self.label)
+                    disc_real_image = self.criterion(disps_real['classification'], self.label)
                     disc_real_image_loss = disc_real_image.mean()
 
                     # train with fake data
-                    disps_fake1 = self.model_discriminator(fake_data)
-                    loss_fake, image_loss_fake = self.loss_function(disps_fake1, [fake_data, right])
+                    disps_fake = self.model_discriminator(fake_data)
+                    loss_fake, _ = self.loss_function(disps_fake['disparity'], [fake_data, right])
                     disc_fake = loss_fake.mean()
                     self.label.fill_(self.fake_label)
-                    disc_fake_image = self.criterion(image_loss_fake, self.label)
+                    disc_fake_image = self.criterion(disps_fake['classification'], self.label)
                     disc_fake_image_loss = disc_fake_image.mean()
+
+                    feature_distance = torch.norm(disps_real['feature_map'] - disps_fake['feature_map'], 2)
 
                     # self.showMemoryUsage(0)
                     # train with interpolates data
@@ -411,7 +413,7 @@ class Model:
                     # showMemoryUsage(0)
 
                     # final disc cost
-                    disc_cost = disc_real + disc_real_image_loss + disc_fake_image_loss + disc_fake
+                    disc_cost = disc_real + disc_real_image_loss + disc_fake_image_loss + disc_fake + feature_distance
 
                     disc_cost = Variable(disc_cost, requires_grad=True)
                     # disc_cost = disc_fake - disc_real + gradient_penalty
@@ -487,7 +489,7 @@ class Model:
                 left = data['left_image']
                 right = data['right_image']
                 disps = self.model_discriminator(left)
-                loss, _ = self.loss_function(disps, [left, right])
+                loss, _ = self.loss_function(disps['disparity'], [left, right])
                 # for i in range(len(loss)):
                 #     val_losses.append(loss[i].item())
                 #     running_val_loss += loss[i].item()
@@ -527,29 +529,6 @@ class Model:
         gpu_stats = gpustat.GPUStatCollection.new_query()
         item = gpu_stats.jsonify()["gpus"][device]
         print('Used/total: ' + "{}/{}".format(item["memory.used"], item["memory.total"]))
-
-    def calc_gradient_penalty(self, real_data, fake_data, right):
-        alpha = torch.rand(self.args.batch_size, 1)
-        alpha = alpha.expand(self.args.batch_size, int(real_data.nelement() / self.args.batch_size)).contiguous()
-        alpha = alpha.view(self.args.batch_size, 3, self.args.input_height, self.args.input_width)
-        alpha = alpha.to(self.device)
-
-        fake_data = fake_data.view(self.args.batch_size, 3, self.args.input_height, self.args.input_width)
-        interpolates = alpha * real_data.detach() + ((1 - alpha) * fake_data.detach())
-
-        interpolates = interpolates.to(self.device)
-        interpolates.requires_grad_(True)
-
-        disp1, disp2, disp3, disp4 = self.model_discriminator(interpolates)
-        loss, loss_fake_image = self.loss_function([disp1, disp2, disp3, disp4], [interpolates, right])
-
-        gradients = autograd.grad(outputs=loss, inputs=interpolates,
-                                  grad_outputs=torch.ones(loss.size()).to(self.device),
-                                  create_graph=True, retain_graph=True, only_inputs=True)[0]
-
-        gradients = gradients.view(gradients.size(0), -1)
-        gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * 10
-        return gradient_penalty
 
     def test(self):
         self.model_discriminator.eval()
