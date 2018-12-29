@@ -134,6 +134,21 @@ class get_disp(nn.Module):
         x = self.normalize(x)
         return 0.3 * self.sigmoid(x)
 
+# class Vgg(nn.Module):
+#     def __init__(self, num_in_layers):
+#         super(Vgg, self).__init__()
+#
+#         # encoder
+#         self.conv1 = conv(num_in_layers, 64, 7, 2)  # H/2  -   64D
+#     conv2 = self.conv_block(conv1, 64, 5)  # H/4
+#     conv3 = self.conv_block(conv2, 128, 3)  # H/8
+#     conv4 = self.conv_block(conv3, 256, 3)  # H/16
+#     conv5 = self.conv_block(conv4, 512, 3)  # H/32
+#     conv6 = self.conv_block(conv5, 512, 3)  # H/64
+#     conv7 = self.conv_block(conv6, 512, 3)  # H/128
+
+
+
 
 class Resnet50_md(nn.Module):
     def __init__(self, num_in_layers):
@@ -168,6 +183,16 @@ class Resnet50_md(nn.Module):
         self.upconv1 = upconv(32, 16, 3, 2)
         self.iconv1 = conv(16+2, 16, 3, 1)
         self.disp1_layer = get_disp(16)
+
+        self.dense_layer_disp1 = nn.Linear(256 * 512 * 2, 1)
+        self.dense_layer_disp2 = nn.Linear(128 * 256 * 2, 1)
+        self.dense_layer_disp3 = nn.Linear(64 * 128 * 2, 1)
+        self.dense_layer_disp4 = nn.Linear(32 * 64 * 2, 1)
+
+        # self.dense_out = (self.dense_layer_disp1 + self.dense_layer_disp2 \
+        #                  + self.dense_layer_disp3 + self.dense_layer_disp4)/4
+
+        self.output = nn.Sigmoid()
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -221,12 +246,32 @@ class Resnet50_md(nn.Module):
         iconv1 = self.iconv1(concat1)
         self.disp1 = self.disp1_layer(iconv1)
 
-        # linear_result = nn.Linear(iconv1, 1)
-        # self.sigmoid_layer = nn.Sigmoid()
-        self.classification = nn.Sigmoid()
-        self.classification = self.classification(iconv1)
+        self.disp1_dense = self.disp1.view(-1, 2 * 256 * 512)
+        self.disp2_dense = self.disp2.view(-1, 2 * 128 * 256)
+        self.disp3_dense = self.disp3.view(-1, 2 * 64 * 128)
+        self.disp4_dense = self.disp4.view(-1, 2 * 32 * 64)
 
-        return self.disp1, self.disp2, self.disp3, self.disp4
+        self.output_disp1 = self.dense_layer_disp1(self.disp1_dense)
+        self.output_disp2 = self.dense_layer_disp2(self.disp2_dense)
+        self.output_disp3 = self.dense_layer_disp3(self.disp3_dense)
+        self.output_disp4 = self.dense_layer_disp4(self.disp4_dense)
+
+        self.classification_disp_1 = self.output(self.output_disp1)
+        self.classification_disp_2 = self.output(self.output_disp2)
+        self.classification_disp_3 = self.output(self.output_disp3)
+        self.classification_disp_4 = self.output(self.output_disp4)
+
+        self.classification_out = torch.sum(torch.stack([self.classification_disp_1,
+                                                         self.classification_disp_2,
+                                                         self.classification_disp_3,
+                                                         self.classification_disp_4], dim=1), dim=1) / 4
+
+        result = {}
+        result["disparity"] = self.disp1, self.disp2, self.disp3, self.disp4
+        result["classification"] = self.classification_out.view(1, self.classification_out.shape[0])[0]
+        result["feature_map"] = torch.cat([self.disp1_dense, self.disp2_dense, self.disp3_dense,
+                                           self.disp4_dense], dim=1)
+        return result
 
 
 class Resnet18_md(nn.Module):

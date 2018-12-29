@@ -77,7 +77,7 @@ def return_arguments():
                         default=256)
     parser.add_argument('--input_width', type=int, help='input width',
                         default=512)
-    parser.add_argument('--model', default='resnet18_md',
+    parser.add_argument('--model', default='resnet50_md',
                         help='encoder architecture: ' +
                              'resnet18_md or resnet50_md ' + '(default: resnet18)'
                              + 'or torchvision version of any resnet model'
