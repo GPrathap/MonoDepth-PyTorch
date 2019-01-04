@@ -10,10 +10,13 @@ import torchvision.utils as vutils
 import time
 import functools
 import argparse
+import torch.nn.functional as F
+
+from generator import Generator
 
 import numpy as np
 #import sklearn.datasets
-import torch.nn.functional as F
+
 from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 
@@ -103,7 +106,14 @@ def return_arguments():
                         )
     parser.add_argument('--do_augmentation', default=True,
                         help='do augmentation of images or not')
-    parser.add_argument('--augment_parameters', default=[0.8, 1.2, 0.5, 2.0, 0.8, 1.2],
+    parser.add_argument('--augment_parameters', default=[
+        0.8,
+        1.2,
+        0.5,
+        2.0,
+        0.8,
+        1.2,
+    ],
                         help='lowest and highest values for gamma,\
                         brightness and color respectively'
                         )
@@ -154,106 +164,15 @@ def post_process_disparity(disp):
     r_mask = np.fliplr(l_mask)
     return r_mask * l_disp + l_mask * r_disp + (1.0 - l_mask - r_mask) * m_disp
 
-
-# custom weights initialization called on netG and netD
-def weights_init(m):
-    classname = m.__class__.__name__
-    if classname.find('Conv') != -1:
-        m.weight.data.normal_(0.0, 0.02)
-    elif classname.find('BatchNorm') != -1:
-        m.weight.data.normal_(1.0, 0.02)
-        m.bias.data.fill_(0)
-
-
-class Generator(nn.Module):
-    def __init__(self, args):
-        super(Generator, self).__init__()
-        self.args = args
-        input_size = self.args.nz
-        output_size = input_size*8
-
-        self.conv1 = nn.ConvTranspose2d(input_size, output_size, (2, 4), 1, 0, bias=False)
-        self.bn1 = nn.BatchNorm2d(output_size)
-
-        # state size. (ngf*8) x 2 x 4
-        self.conv2 = nn.ConvTranspose2d(output_size, int(output_size / 2), 4, 2, 1, bias=False)
-        self.bn2 = nn.BatchNorm2d(int(output_size / 2))
-
-        # state size. (ngf*4) x 4 x 8
-        self.conv3 = nn.ConvTranspose2d(int(output_size / 2), int(output_size / 4), 4, 2, 1, bias=False)
-        self.bn3 = nn.BatchNorm2d(int(output_size / 4))
-
-        # state size. (ngf*2) x 8 x 16
-        self.conv4 = nn.ConvTranspose2d(int(output_size / 4), int(output_size / 8), 4, 2, 1, bias=False)
-        self.bn4 = nn.BatchNorm2d(int(output_size / 8))
-
-        # state size. (ngf*2) x 16 x 32
-        self.conv5 = nn.ConvTranspose2d(int(output_size / 8), int(output_size / 16), 4, 2, 1, bias=False)
-        self.bn5 = nn.BatchNorm2d(int(output_size / 16))
-
-        # state size. (ngf*2) x 32 x 64
-        self.conv6 = nn.ConvTranspose2d(int(output_size / 16), int(output_size / 32), 4, 2, 1, bias=False)
-        self.bn6 = nn.BatchNorm2d(int(output_size / 32))
-
-        # state size. (ngf*2) x 64 x 128
-        self.conv7 = nn.ConvTranspose2d(int(output_size / 32), int(output_size / 64), 4, 2, 1, bias=False)
-        self.bn7 = nn.BatchNorm2d(int(output_size / 64))
-
-        # state size. (ngf*2) x 128 x 256
-        self.disp1 = nn.ConvTranspose2d(int(output_size / 64), 2, 4, 2, 1, bias=False)
-        self.disp2 = nn.ConvTranspose2d(int(output_size / 32), 2, 4, 2, 1, bias=False)
-        self.disp3 = nn.ConvTranspose2d(int(output_size / 16), 2, 4, 2, 1, bias=False)
-        self.disp4 = nn.ConvTranspose2d(int(output_size / 8), 2, 4, 2, 1, bias=False)
-
-        self.tanh = nn.Tanh()
-
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.xavier_uniform_(m.weight)
-
-    def forward(self, x):
-        x = self.bn1(F.relu(self.conv1(x)))
-        x = self.bn2(F.relu(self.conv2(x)))
-        x = self.bn3(F.relu(self.conv3(x)))
-
-        x = F.relu(self.conv4(x))
-        disp4 = self.disp4(x)
-        x = self.bn4(x)
-
-        x = F.relu(self.conv5(x))
-        disp3 = self.disp3(x)
-        x = self.bn5(x)
-
-        x = F.relu(self.conv6(x))
-        disp2 = self.disp2(x)
-        x = self.bn6(x)
-
-        x = F.relu(self.conv7(x))
-        disp1 = self.disp1(x)
-
-        return self.tanh(disp1), self.tanh(disp2), self.tanh(disp3), self.tanh(disp4)
-
-class Discriminator(nn.Module):
-    def __init__(self):
-        super(Discriminator, self).__init__()
-
-        self.disp1 = nn.ConvTranspose2d(2, 2, 4, 2, 1, bias=False)
-        # self.disp2 = nn.ConvTranspose2d(2, 2, 4, 2, 1, bias=False)
-        # self.disp3 = nn.ConvTranspose2d(2, 2, 4, 2, 1, bias=False)
-        self.criterion = nn.MSELoss()
-
-        for m in self.modules():
-            if isinstance(m, nn.ConvTranspose2d):
-                nn.init.xavier_uniform_(m.weight)
-
-    def forward(self, x):
-        disp1_predcited = self.disp1(x[3])
-        disp2_predcited = self.disp1(x[2])
-        disp3_predcited = self.disp1(x[1])
-        disp1_error = torch.sqrt(self.criterion(disp1_predcited, x[2]))
-        disp2_error = torch.sqrt(self.criterion(disp2_predcited, x[1]))
-        disp3_error = torch.sqrt(self.criterion(disp3_predcited, x[0]))
-        return disp1_error + disp2_error + disp3_error
+#
+# # custom weights initialization called on netG and netD
+# def weights_init(m):
+#     classname = m.__class__.__name__
+#     if classname.find('Conv') != -1:
+#         m.weight.data.normal_(0.0, 0.02)
+#     elif classname.find('BatchNorm') != -1:
+#         m.weight.data.normal_(1.0, 0.02)
+#         m.bias.data.fill_(0)
 
 class Model:
 
@@ -272,11 +191,8 @@ class Model:
         self.ngf = int(self.args.ngf)
         self.ndf = int(self.args.ndf)
 
-        self.model_generator = Generator(self.args).to(self.device)
-        self.model_discriminator = Discriminator().to(self.device)
-
-        if self.args.netG != '':
-            self.model_generator.load_state_dict(torch.load(self.args.netG))
+        # self.model_generator = Generator(self.args).to(self.device)
+        # self.model_generator.apply(weights_init)
         # if self.args.netG != '':
         #     self.model_generator.load_state_dict(torch.load(self.args.netG))
         # print(self.model_generator)
@@ -285,10 +201,25 @@ class Model:
                                              pretrained=args.pretrained)
         self.model_estimator = self.model_estimator.to(self.device)
 
+
+        self.dis_lrs = [0.0001, 0.0001, 0.0001, 0.0001]
+        self.gen_lrs = [0.0003, 0.0005, 0.003, 0.0003]
+
+        self.D_criterions = []
+        self.G_criterions = []
+
+        self.D_optimizers = []
+        self.G_optimizers = []
+
+        self.fake_disparity = []
+
+
         self.one = torch.FloatTensor([1])
         self.mone = self.one * -1
         self.one = self.one.to(self.device)
         self.mone = self.mone.to(self.device)
+
+        self.generator = Generator()
 
         if args.mode == 'train':
             self.loss_function = MonodepthLoss(
@@ -296,14 +227,30 @@ class Model:
                 SSIM_w=0.85,
                 disp_gradient_w=0.1, lr_w=1).to(self.device)
             self.optimizer_estimator = optim.Adam(self.model_estimator.parameters(), lr=args.learning_rate)
-            self.optimizer_generator = optim.Adam(self.model_generator.parameters(), lr=args.learning_rate)
-            self.optimizer_discriminator = optim.Adam(self.model_discriminator.parameters(), lr=args.learning_rate)
 
             self.val_n_img, self.val_loader = prepare_dataloader(args.val_data_dir, args.mode,
                                                                  args.augment_parameters,
                                                                  False, args.batch_size,
                                                                  (args.input_height, args.input_width),
                                                                  args.num_workers)
+            for l in range(4):
+                self.D_criterions.append(nn.BCELoss())
+                D_optim = optim.Adam(self.generator.Dis_models[l].parameters(),
+                                     lr=self.dis_lrs[l], betas=(0.5, 0.999))
+                # D_optim = optim.SGD(LapGan_model.Dis_models[l].parameters(), lr=dis_lrs[l], momentum=0.5)
+                self.D_optimizers.append(D_optim)
+
+                self.G_criterions.append(nn.BCELoss())
+                G_optim = optim.Adam(self.generator.Gen_models[l].parameters(),
+                                     lr=self.gen_lrs[l], betas=(0.5, 0.999))
+                # G_optim = optim.SGD(LapGan_model.Gen_models[l].parameters(), lr=gen_lrs[l], momentum=0.5)
+                self.G_optimizers.append(G_optim)
+
+            for G in self.generator.Gen_models:
+                G.train()
+            for D in self.generator.Dis_models:
+                D.train()
+
         else:
             self.model_estimator.load_state_dict(torch.load(args.model_path))
             args.augment_parameters = None
@@ -333,13 +280,12 @@ class Model:
         running_val_loss = 0.0
         running_loss_generator = 0.0
         self.model_estimator.eval()
-        self.model_generator.eval()
         for data in self.val_loader:
             data = to_device(data, self.device)
             left = data['left_image']
             right = data['right_image']
-            disps_real = self.model_estimator(left)
-            loss, _ = self.loss_function(disps_real['disparity'], [left, right])
+            disps = self.model_estimator(left)
+            loss, _ = self.loss_function(disps['disparity'], [left, right])
             # for i in range(len(loss)):
             #     val_losses.append(loss[i].item())
             #     running_val_loss += loss[i].item()
@@ -352,12 +298,11 @@ class Model:
 
         for epoch in range(self.args.epochs):
             if self.args.adjust_lr:
-                adjust_learning_rate(self.optimizer_discriminator, epoch, self.args.learning_rate)
+                adjust_learning_rate(self.optimizer_estimator, epoch, self.args.learning_rate)
             c_time = time.time()
             running_loss = 0.0
             running_loss_generator = 0.0
             self.model_estimator.train()
-            self.model_generator.train()
             iterator = 0
             for data in self.loader:
                 # Load data
@@ -368,66 +313,37 @@ class Model:
                 if(left.shape[0]!=self.args.batch_size):
                     continue
 
-                # (1) Update D network
-                ###########################
-                for p in self.model_estimator.parameters():  # reset requires_grad
-                    p.requires_grad = True  # they are set to False below in netG update
-                for p in self.model_discriminator.parameters():  # reset requires_grad
-                    p.requires_grad = True  # they are set to False below in netG update
+                # One optimization iteration
+                self.optimizer_estimator.zero_grad()
+                disps_real = self.model_estimator(left)
 
-                for i in xrange(self.args.discriminator_iterations):
+                for l in range(4):
+                    noise = torch.randn(self.args.batch_size, 100, 1, 1)
+                    noise = noise.cuda()
+                    fake_disparity_model = self.generator.Gen_models[l](noise)
+                    self.fake_disparity.append(fake_disparity_model)
 
-                    self.model_estimator.zero_grad()
-                    disps_real = self.model_estimator(left)
-                    loss_real_1, _ = self.loss_function(disps_real['disparity'], [left, right])
-                    loss_real_2 = self.model_discriminator(disps_real['disparity'])
+                labels = np.zeros(2 * self.args.batch_size)
+                labels[:self.args.batch_size] = 1
+                labels = Variable(torch.from_numpy(labels.astype(np.float32)))
+                labels = labels.cuda()
 
-                    loss_real = loss_real_1 + loss_real_2
-                    loss_real.backward(self.mone)
-                    disc_real = loss_real.mean()
+                loss = self.loss_function(disps_real['disparity'], [left, right])
+                loss.backward()
+                disc_real = loss.mean()
 
-                    noise = torch.randn(self.args.batch_size, self.nz, 1, 1, device=self.device)
-                    disps_fake = self.model_generator(noise)
-                    # disps_fake = self.model_estimator(left)
-                    loss_fake_1, _ = self.loss_function(disps_fake, [left, right])
-                    loss_fake_2 = self.model_discriminator(disps_fake)
+                self.optimizer_estimator.step()
+                losses_real.append(loss.item())
 
-                    loss_fake = loss_fake_1 + loss_fake_2
-                    loss_fake.backward(self.one)
-                    disc_fake = loss_fake.mean()
+                print("Iteration "+str(iterator)+" : loss " + str(disc_real))
 
-                    d_cost = disc_fake - disc_real
-                    running_loss += d_cost.item()
-                    self.optimizer_discriminator.step()
-                    self.optimizer_estimator.step()
-                ############################
-                # (2) Update G network
-                ###########################
-                for p in self.model_estimator.parameters():
-                    p.requires_grad = False  # to avoid computation
-                for p in self.model_discriminator.parameters():
-                    p.requires_grad = False  # to avoid computation
 
-                self.model_generator.zero_grad()
 
-                noise = torch.randn(self.args.batch_size, self.nz, 1, 1, device=self.device)
-                disps_fake = self.model_generator(noise)
-                loss_fake = self.model_discriminator(disps_fake)
-                loss_fake.backward(self.mone)
-                g_cost = -loss_fake
-                self.optimizer_generator.step()
-
-                # # One optimization iteration
-                # self.optimizer_discriminator.zero_grad()
-                # disps_real = self.model_estimator(left)
-                # loss, _ = self.loss_function(disps_real['disparity'], [left, right])
-                # loss.backward()
-                # disc_real = loss.mean()
-                #
-                # self.optimizer_discriminator.step()
-                # losses_real.append(loss.item())
+                # start_time = time.time()
+                # # print("Iter: " + str(iterator))
+                # start = timer()
                 # # ---------------------TRAIN G------------------------
-                # for p in self.model_estimator.parameters():
+                # for p in self.model_discriminator.parameters():
                 #     p.requires_grad_(False)  # freeze D
                 #
                 # gen_cost = None
@@ -441,7 +357,7 @@ class Model:
                 #     # print("Critic iter: " + str(i))
                 #
                 #     start = timer()
-                #     self.model_estimator.zero_grad()
+                #     self.model_discriminator.zero_grad()
                 #
                 #     # gen fake data and load real data
                 #     noise = torch.randn(self.args.batch_size, self.nz, 1, 1, device=self.device)
@@ -450,7 +366,7 @@ class Model:
                 #     fake_data = self.model_generator(noisev).detach()
                 #
                 #     # train ith real data
-                #     disps_real = self.model_estimator(left)
+                #     disps_real = self.model_discriminator(left)
                 #     loss_real, _ = self.loss_function(disps_real['disparity'], [left, right])
                 #     disc_real = loss_real.mean()
                 #     self.label = torch.full((self.args.batch_size,), self.real_label, device=self.device)
@@ -458,7 +374,7 @@ class Model:
                 #     disc_real_image_loss = disc_real_image.mean()
                 #
                 #     # train with fake data
-                #     disps_fake = self.model_estimator(fake_data)
+                #     disps_fake = self.model_discriminator(fake_data)
                 #     # loss_fake, _ = self.loss_function(disps_fake['disparity'], [fake_data, right])
                 #     # disc_fake = loss_fake.mean()
                 #     self.label.fill_(self.fake_label)
@@ -484,7 +400,7 @@ class Model:
                 #     noise = torch.randn(self.args.batch_size, self.nz, 1, 1, device=self.device)
                 #     noise.requires_grad_(True)
                 #     fake_data = self.model_generator(noise)
-                #     disps_fake = self.model_estimator(fake_data)
+                #     disps_fake = self.model_discriminator(fake_data)
                 #     # loss_fake, _ = self.loss_function(disps_fake['disparity'], [fake_data, right])
                 #     self.label.fill_(self.real_label)
                 #     disc_real_image = self.criterion(disps_fake['classification'], self.label)
@@ -498,12 +414,17 @@ class Model:
                 #     running_loss_generator += generator_cost.item()
                 #     # loss_fake.backward()
 
-                # if epoch % 1 == 0:
-                #     print("Iteration " + str(iterator) + " : loss " + str(disc_real))
-                    # fake = self.model_generator(self.fixed_noise)
-                    # vutils.save_image(fake[0].detach(),
-                    #                   '%s/fake_samples_epoch_%03d.png' % (self.args.output_image_directory, epoch),
-                    #                   normalize=True)
+
+                self.optimizer_generator.step()
+                end = timer()
+                # print('[%d/%d][%d] Loss_D: %.4f Loss_G: %.4f '
+                #       % (epoch, iterator, len(data), disc_cost, gen_cost))
+
+                if epoch % 1 == 0:
+                    fake = self.model_generator(self.fixed_noise)
+                    vutils.save_image(fake.detach(),
+                                      '%s/fake_samples_epoch_%03d.png' % (self.args.output_image_directory, epoch),
+                                      normalize=True)
 
                 # Print statistics
                 if self.args.print_weights:
