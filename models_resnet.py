@@ -134,19 +134,6 @@ class get_disp(nn.Module):
         x = self.normalize(x)
         return 0.3 * self.sigmoid(x)
 
-# class Vgg(nn.Module):
-#     def __init__(self, num_in_layers):
-#         super(Vgg, self).__init__()
-#
-#         # encoder
-#         self.conv1 = conv(num_in_layers, 64, 7, 2)  # H/2  -   64D
-#     conv2 = self.conv_block(conv1, 64, 5)  # H/4
-#     conv3 = self.conv_block(conv2, 128, 3)  # H/8
-#     conv4 = self.conv_block(conv3, 256, 3)  # H/16
-#     conv5 = self.conv_block(conv4, 512, 3)  # H/32
-#     conv6 = self.conv_block(conv5, 512, 3)  # H/64
-#     conv7 = self.conv_block(conv6, 512, 3)  # H/128
-
 
 class Vgg(nn.Module):
     def __init__(self, num_in_layers):

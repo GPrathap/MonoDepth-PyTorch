@@ -85,7 +85,7 @@ def return_arguments():
     parser.add_argument('--pretrained', default=False,
                         help='Use weights of pretrained model'
                         )
-    parser.add_argument('--mode', default='train',
+    parser.add_argument('--mode', default='test',
                         help='mode: train or test (default: train)')
     parser.add_argument('--epochs', default=50,
                         help='number of total epochs to run')
@@ -285,10 +285,10 @@ class Model:
                                              pretrained=args.pretrained)
         self.model_estimator = self.model_estimator.to(self.device)
 
-        self.one = torch.FloatTensor([1])
-        self.mone = self.one * -1
-        self.one = self.one.to(self.device)
-        self.mone = self.mone.to(self.device)
+        # self.one = torch.FloatTensor([1])
+        # self.mone = self.one * -1
+        # self.one = self.one.to(self.device)
+        # self.mone = self.mone.to(self.device)
 
         if args.mode == 'train':
             self.loss_function = MonodepthLoss(
@@ -332,8 +332,8 @@ class Model:
 
         running_val_loss = 0.0
         running_loss_generator = 0.0
+
         self.model_estimator.eval()
-        self.model_generator.eval()
         for data in self.val_loader:
             data = to_device(data, self.device)
             left = data['left_image']
@@ -358,6 +358,7 @@ class Model:
             running_loss_generator = 0.0
             self.model_estimator.train()
             self.model_generator.train()
+            self.model_discriminator.train()
             iterator = 0
             for data in self.loader:
                 # Load data
@@ -378,12 +379,15 @@ class Model:
                 for i in xrange(self.args.discriminator_iterations):
 
                     self.model_estimator.zero_grad()
+                    self.model_discriminator.zero_grad()
+                    self.optimizer_generator.zero_grad()
+
                     disps_real = self.model_estimator(left)
                     loss_real_1, _ = self.loss_function(disps_real['disparity'], [left, right])
                     loss_real_2 = self.model_discriminator(disps_real['disparity'])
 
                     loss_real = loss_real_1 + loss_real_2
-                    loss_real.backward(self.mone)
+                    # loss_real.backward(self.mone)
                     disc_real = loss_real.mean()
 
                     noise = torch.randn(self.args.batch_size, self.nz, 1, 1, device=self.device)
@@ -393,10 +397,12 @@ class Model:
                     loss_fake_2 = self.model_discriminator(disps_fake)
 
                     loss_fake = loss_fake_1 + loss_fake_2
-                    loss_fake.backward(self.one)
+                    # loss_fake.backward()
                     disc_fake = loss_fake.mean()
 
                     d_cost = disc_fake - disc_real
+                    d_cost.backward()
+
                     running_loss += d_cost.item()
                     self.optimizer_discriminator.step()
                     self.optimizer_estimator.step()
@@ -413,8 +419,9 @@ class Model:
                 noise = torch.randn(self.args.batch_size, self.nz, 1, 1, device=self.device)
                 disps_fake = self.model_generator(noise)
                 loss_fake = self.model_discriminator(disps_fake)
-                loss_fake.backward(self.mone)
+                loss_fake.backward()
                 g_cost = -loss_fake
+                running_loss_generator += g_cost
                 self.optimizer_generator.step()
 
                 # # One optimization iteration
@@ -567,7 +574,7 @@ class Model:
                 'discriminator_loss:',
                 running_loss,
                 'generator_loss',
-                running_loss_generator,
+                running_loss_generator.item(),
                 'val_loss:',
                 running_val_loss,
                 'time:',
@@ -609,7 +616,8 @@ class Model:
                 data = to_device(data, self.device)
                 left = data.squeeze()
                 # Do a forward pass
-                disps = self.model_estimator(left)
+                logicstics = self.model_estimator(left)
+                disps =  logicstics['disparity']
                 disp = disps[0][:, 0, :, :].unsqueeze(1)
                 disparities[i] = disp[0].squeeze().cpu().numpy()
                 disparities_pp[i] = \
