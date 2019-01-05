@@ -44,6 +44,8 @@ import matplotlib as mpl
 mpl.rcParams['figure.figsize'] = (15, 10)
 
 
+cuda = True if torch.cuda.is_available() else False
+
 def return_arguments():
     parser = argparse.ArgumentParser(description='PyTorch Monodepth')
 
@@ -85,7 +87,7 @@ def return_arguments():
     parser.add_argument('--pretrained', default=False,
                         help='Use weights of pretrained model'
                         )
-    parser.add_argument('--mode', default='test',
+    parser.add_argument('--mode', default='train',
                         help='mode: train or test (default: train)')
     parser.add_argument('--epochs', default=50,
                         help='number of total epochs to run')
@@ -237,9 +239,12 @@ class Discriminator(nn.Module):
     def __init__(self):
         super(Discriminator, self).__init__()
 
-        self.disp1 = nn.ConvTranspose2d(2, 2, 4, 2, 1, bias=False)
-        # self.disp2 = nn.ConvTranspose2d(2, 2, 4, 2, 1, bias=False)
-        # self.disp3 = nn.ConvTranspose2d(2, 2, 4, 2, 1, bias=False)
+        # self.disp1 = nn.ConvTranspose2d(2, 2, 4, 2, 1, bias=False)
+
+        self.disp1 = nn.Sequential(
+            nn.ConvTranspose2d(2, 2, 4, 2, 1, bias=False),
+            nn.Tanh())
+
         self.criterion = nn.MSELoss()
 
         for m in self.modules():
@@ -400,7 +405,9 @@ class Model:
                     # loss_fake.backward()
                     disc_fake = loss_fake.mean()
 
-                    d_cost = disc_fake - disc_real
+                    gradient_penalty = self.compute_gradient_penalty(disps_real['disparity'], disps_fake)
+
+                    d_cost = disc_fake - disc_real + gradient_penalty
                     d_cost.backward()
 
                     running_loss += d_cost.item()
@@ -589,6 +596,32 @@ class Model:
 
         print('Finished Training. Best loss:', best_loss_real)
         self.save(self.args.model_path)
+
+    def compute_gradient_penalty(self, real_samples, fake_samples):
+        """Calculates the gradient penalty loss for WGAN GP"""
+
+        Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
+        interpolates = []
+        for real_disp, fake_diap in zip(real_samples, fake_samples):
+            # Random weight term for interpolation between real and fake samples
+            alpha = Tensor(np.random.random((real_disp.size(0), 1, 1, 1)))
+            # Get random interpolation between real and fake samples
+            interpolates.append((alpha * real_disp + ((1 - alpha) * fake_diap)).requires_grad_(True))
+
+        d_interpolates = self.model_discriminator(interpolates)
+        fake = Variable(Tensor(real_samples[0].shape[0], 1).fill_(1.0), requires_grad=False)
+        # Get gradient w.r.t. interpolates
+        gradients = autograd.grad(
+            outputs=d_interpolates,
+            inputs=interpolates,
+            grad_outputs=fake,
+            create_graph=True,
+            retain_graph=True,
+            only_inputs=True,
+        )[0]
+        gradients = gradients.view(gradients.size(0), -1)
+        gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean()
+        return gradient_penalty
 
 
     def save(self, path):
