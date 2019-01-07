@@ -405,9 +405,9 @@ class Model:
                     # loss_fake.backward()
                     disc_fake = loss_fake.mean()
 
-                    gradient_penalty = self.compute_gradient_penalty(disps_real['disparity'], disps_fake)
+                    # gradient_penalty = self.compute_gradient_penalty(disps_real['disparity'], disps_fake)
 
-                    d_cost = disc_fake - disc_real + gradient_penalty
+                    d_cost = disc_fake - disc_real #+ gradient_penalty
                     d_cost.backward()
 
                     running_loss += d_cost.item()
