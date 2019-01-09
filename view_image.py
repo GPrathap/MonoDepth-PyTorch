@@ -11,8 +11,10 @@ import os
 #     plt.imsave(os.path.join("/home/geesara/diparity/images", "{}_{}disp.png".format(i, "new_image"))
 #                , disp_to_img, cmap='plasma')
 
-disp_pp = np.load("/root/wakemeup/output/disparities.npy")
+disp_pp = np.load("/root/wakemeup/output/disparities_pp.npy")
 for i in range(0,len(disp_pp)):
     disp_to_img = scipy.misc.imresize(disp_pp[i].squeeze(), [256, 512])
     plt.imsave(os.path.join("/root/wakemeup/output/", "{}_{}----------------------------.png".format(i, "new_image"))
                , disp_to_img, cmap='plasma')
+
+
