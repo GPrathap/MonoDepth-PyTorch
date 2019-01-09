@@ -384,30 +384,30 @@ class Model:
                 for i in xrange(self.args.discriminator_iterations):
 
                     self.model_estimator.zero_grad()
-                    # self.model_discriminator.zero_grad()
-                    # self.optimizer_generator.zero_grad()
+                    self.model_discriminator.zero_grad()
+                    self.optimizer_generator.zero_grad()
 
                     disps_real = self.model_estimator(left)
                     loss_real_1, _ = self.loss_function(disps_real['disparity'], [left, right])
-                    # loss_real_2 = self.model_discriminator(disps_real['disparity'])
+                    loss_real_2 = self.model_discriminator(disps_real['disparity'])
 
-                    loss_real = loss_real_1 #+ loss_real_2
+                    loss_real = loss_real_1 + loss_real_2
                     # loss_real.backward(self.mone)
                     disc_real = loss_real.mean()
 
-                    # noise = torch.randn(self.args.batch_size, self.nz, 1, 1, device=self.device)
-                    # disps_fake = self.model_generator(noise)
-                    # # disps_fake = self.model_estimator(left)
-                    # loss_fake_1, _ = self.loss_function(disps_fake, [left, right])
-                    # loss_fake_2 = self.model_discriminator(disps_fake)
-                    #
-                    # loss_fake = loss_fake_1 + loss_fake_2
-                    # # loss_fake.backward()
-                    # disc_fake = loss_fake.mean()
+                    noise = torch.randn(self.args.batch_size, self.nz, 1, 1, device=self.device)
+                    disps_fake = self.model_generator(noise)
+                    # disps_fake = self.model_estimator(left)
+                    loss_fake_1, _ = self.loss_function(disps_fake, [left, right])
+                    loss_fake_2 = self.model_discriminator(disps_fake)
+
+                    loss_fake = loss_fake_1 + loss_fake_2
+                    # loss_fake.backward()
+                    disc_fake = loss_fake.mean()
 
                     # gradient_penalty = self.compute_gradient_penalty(disps_real['disparity'], disps_fake)
 
-                    # d_cost = disc_fake - disc_real #+ gradient_penalty
+                    d_cost = disc_fake - disc_real #+ gradient_penalty
                     d_cost = disc_real #+ gradient_penalty
                     d_cost.backward()
 
@@ -417,20 +417,20 @@ class Model:
                 ############################
                 # (2) Update G network
                 ###########################
-                # for p in self.model_estimator.parameters():
-                #     p.requires_grad = False  # to avoid computation
-                # for p in self.model_discriminator.parameters():
-                #     p.requires_grad = False  # to avoid computation
-                #
-                # self.model_generator.zero_grad()
-                #
-                # noise = torch.randn(self.args.batch_size, self.nz, 1, 1, device=self.device)
-                # disps_fake = self.model_generator(noise)
-                # loss_fake = self.model_discriminator(disps_fake)
-                # loss_fake.backward()
-                # g_cost = -loss_fake
-                # running_loss_generator += g_cost
-                # self.optimizer_generator.step()
+                for p in self.model_estimator.parameters():
+                    p.requires_grad = False  # to avoid computation
+                for p in self.model_discriminator.parameters():
+                    p.requires_grad = False  # to avoid computation
+
+                self.model_generator.zero_grad()
+
+                noise = torch.randn(self.args.batch_size, self.nz, 1, 1, device=self.device)
+                disps_fake = self.model_generator(noise)
+                loss_fake = self.model_discriminator(disps_fake)
+                loss_fake.backward()
+                g_cost = -loss_fake
+                running_loss_generator += g_cost
+                self.optimizer_generator.step()
 
                 # # One optimization iteration
                 # self.optimizer_discriminator.zero_grad()
@@ -582,7 +582,7 @@ class Model:
                 'discriminator_loss:',
                 running_loss,
                 'generator_loss',
-                0,
+                running_loss_generator,
                 'val_loss:',
                 running_val_loss,
                 'time:',
