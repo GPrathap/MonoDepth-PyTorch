@@ -295,6 +295,7 @@ class Model:
         # self.one = self.one.to(self.device)
         # self.mone = self.mone.to(self.device)
 
+        self.model_estimator.load_state_dict(torch.load(args.model_path))
         if args.mode == 'train':
             self.loss_function = MonodepthLoss(
                 n=4,
@@ -310,7 +311,6 @@ class Model:
                                                                  (args.input_height, args.input_width),
                                                                  args.num_workers)
         else:
-            self.model_estimator.load_state_dict(torch.load(args.model_path))
             args.augment_parameters = None
             args.do_augmentation = False
             args.batch_size = 1
