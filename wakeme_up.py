@@ -89,7 +89,7 @@ def return_arguments():
                         )
     parser.add_argument('--mode', default='train',
                         help='mode: train or test (default: train)')
-    parser.add_argument('--epochs', default=50,
+    parser.add_argument('--epochs', default=100,
                         help='number of total epochs to run')
     parser.add_argument('--learning_rate', default=1e-4,
                         help='initial learning rate (default: 1e-4)')
@@ -412,7 +412,8 @@ class Model:
                     d_cost.backward()
 
                     running_loss += d_cost.item()
-                    # self.optimizer_discriminator.step()
+
+                    self.optimizer_discriminator.step()
                     self.optimizer_estimator.step()
                 ############################
                 # (2) Update G network
