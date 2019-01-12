@@ -408,7 +408,7 @@ class Model:
                     # gradient_penalty = self.compute_gradient_penalty(disps_real['disparity'], disps_fake)
 
                     d_cost = disc_fake - disc_real #+ gradient_penalty
-                    d_cost = disc_real #+ gradient_penalty
+                    d_cost = d_cost #+ gradient_penalty
                     d_cost.backward()
 
                     running_loss += d_cost.item()
